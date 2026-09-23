@@ -1,0 +1,387 @@
+{
+  "apiVersion": 1,
+  "id": "modera.terminal",
+  "name": "Terminal",
+  "version": "0.8.0",
+  "description": "执行构建、测试与 Git 命令，支持审批、取消和超时。",
+  "author": "Modera",
+  "category": "development",
+  "icon": "terminal",
+  "main": "dist/index.cjs",
+  "permissions": ["process.spawn", "storage.read", "storage.write"],
+  "extensions": ["tool.result", "settings", "panel"],
+  "configScope": "global",
+  "config": {
+    "agentEnvironment": {
+      "type": "enum",
+      "title": "Agent environment",
+      "default": "windows-native",
+      "options": ["windows-native", "wsl"],
+      "locales": { "zh-CN": { "title": "智能体环境" } }
+    },
+    "wslDistribution": {
+      "type": "string",
+      "title": "WSL distribution",
+      "default": "",
+      "maxLength": 100,
+      "locales": { "zh-CN": { "title": "WSL 发行版" } }
+    },
+    "integratedShell": {
+      "type": "string",
+      "title": "Integrated terminal shell",
+      "default": "auto",
+      "maxLength": 1000,
+      "locales": { "zh-CN": { "title": "集成终端 Shell" } }
+    },
+    "fontFamily": {
+      "type": "string",
+      "title": "Font family",
+      "default": "Cascadia Mono, Consolas, monospace",
+      "maxLength": 200
+    },
+    "fontSize": {
+      "type": "number",
+      "title": "Font size",
+      "default": 13,
+      "minimum": 6,
+      "maximum": 72
+    },
+    "lineHeight": {
+      "type": "number",
+      "title": "Line height",
+      "default": 1.2,
+      "minimum": 0.5,
+      "maximum": 3
+    },
+    "gpuRendering": {
+      "type": "boolean",
+      "title": "GPU rendering",
+      "default": false
+    },
+    "scrollback": {
+      "type": "number",
+      "title": "Scrollback",
+      "default": 5000,
+      "minimum": 100,
+      "maximum": 50000
+    }
+  },
+  "settings": {
+    "waitForReady": true,
+    "title": "Terminal settings",
+    "frontend": "settings",
+    "locales": { "zh-CN": { "title": "终端设置" } }
+  },
+  "frontends": {
+    "settings": { "root": "dist/ui", "entry": "settings.html" },
+    "terminal": { "root": "dist/ui", "entry": "terminal.html" }
+  },
+  "agentGuidance": "Use the terminal for builds, tests and commands that genuinely require a shell. Use workspace tools for ordinary file edits; use managed background sessions for servers and watchers.",
+  "tools": [
+    {
+      "id": "terminal_execute",
+      "description": "Execute one command in the project shell (Windows PowerShell; POSIX bash/sh). Supply a description in the user's language. For commands requiring USER input (Read-Host, prompts, confirmations), set interactive=true: ONE tool call stays pending while the user types directly in its card; returns only when the process exits or is stopped. Do not open/send/wait or poll to orchestrate user input. Interactive timeout defaults to 30 minutes. interactive and background cannot be combined. Ordinary commands wait up to yieldTimeMs (default 10000ms), then return a managed sessionId if still running. Waiting does not kill the process. Reuse terminal_session read/list/stop; do not restart a running command. Process timeout is optional. For dev servers/watchers use background=true to return immediately. Host approval required. Bounded output. User OS privileges, NOT sandboxed.",
+      "locales": {
+        "en": {
+          "title": "Execute terminal command"
+        },
+        "zh-CN": {
+          "description": "在项目目录执行命令。interactive=true 时一次调用等待用户在卡片输入，退出后返回；background=true 启动后台任务，二者不可同时开启。不是安全沙箱。"
+        }
+      },
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "background": {
+            "description": "Return a managed job ID for long commands; not detached from plugin lifecycle.",
+            "type": "boolean"
+          },
+          "command": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "interactive": {
+            "description": "One pending command with inline USER input; no model polling. Cannot combine with background.",
+            "type": "boolean"
+          },
+          "timeout": {
+            "description": "Optional process deadline in milliseconds. Omit for no deadline (interactive defaults to 30 minutes).",
+            "maximum": 1800000,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "workingDirectory": {
+            "description": "Project-relative directory; defaults to project root.",
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "yieldTimeMs": {
+            "description": "How long to wait for ordinary command completion before returning a running session ID; default 10000. Does not terminate the process.",
+            "maximum": 30000,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": ["command", "description"],
+        "type": "object"
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "metrics": [
+          {
+            "format": "number",
+            "label": "退出码",
+            "labelEn": "exit code",
+            "path": "exitCode"
+          },
+          {
+            "format": "ms",
+            "label": "耗时",
+            "labelEn": "duration",
+            "path": "durationMs"
+          }
+        ],
+        "targets": ["description", "command"],
+        "tone": "slate"
+      },
+      "requiredPermissions": ["process.spawn"],
+      "title": "执行终端命令"
+    },
+    {
+      "id": "terminal_session",
+      "description": "List, read incremental output or stop managed terminal jobs in this conversation. read uses an absolute character cursor. logs lists persisted log IDs/paths for this conversation; read_log accepts sessionId=log ID and a UTF-8 BYTE cursor, returning nextCursor/hasMore (max 12000 bytes). Reuse returned cursors, do not mix character and byte cursors. Logs survive restart, processes do not. Poll only when needed. No stdin or PTY.",
+      "locales": {
+        "en": {
+          "title": "Manage terminal tasks"
+        },
+        "zh-CN": {
+          "description": "列出、增量读取或停止当前会话的后台命令；logs 列出持久日志，read_log 以 sessionId 指定日志并按 UTF-8 字节 cursor 分页读取。运行输出 read 使用字符 cursor，两者不可混用。"
+        }
+      },
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": ["list", "read", "stop", "logs", "read_log"]
+          },
+          "cursor": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sessionId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": ["action"],
+        "type": "object"
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "metrics": [
+          {
+            "format": "count",
+            "label": "个进程",
+            "labelEn": "processes",
+            "path": "sessions"
+          },
+          {
+            "format": "chars",
+            "label": "字符",
+            "labelEn": "chars",
+            "path": "stdout"
+          }
+        ],
+        "targets": ["action", "sessionId"],
+        "tone": "slate"
+      },
+      "requiredPermissions": ["process.spawn"],
+      "title": "管理终端任务"
+    },
+    {
+      "id": "terminal_open",
+      "title": "打开交互终端",
+      "description": "Open a persistent interactive PTY in the right panel. Returns tabId. cwd defaults to the project root.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cwd": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "shellPath": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "cols": { "type": "integer", "minimum": 2, "maximum": 500 },
+          "rows": { "type": "integer", "minimum": 1, "maximum": 300 }
+        }
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["cwd"]
+      }
+    },
+    {
+      "id": "terminal_send",
+      "title": "向终端发送输入",
+      "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter, arrows, control keys and F1-F12.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tabId": { "type": "string" },
+          "input": { "type": "string", "maxLength": 65536 },
+          "keys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "oneOf": [{ "required": ["input"] }, { "required": ["keys"] }]
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["tabId", "input"]
+      }
+    },
+    {
+      "id": "terminal_read",
+      "title": "读取终端",
+      "description": "Read incremental text and raw terminal output from a tab. Reuse nextCursor; waitMs optionally waits for more output first.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tabId": { "type": "string" },
+          "cursor": { "type": "integer", "minimum": 0 },
+          "waitMs": { "type": "integer", "minimum": 0, "maximum": 60000 }
+        }
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["tabId"]
+      }
+    },
+    {
+      "id": "terminal_resize",
+      "title": "调整终端大小",
+      "description": "Resize the PTY dimensions for a terminal tab.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tabId": { "type": "string" },
+          "cols": { "type": "integer", "minimum": 2, "maximum": 500 },
+          "rows": { "type": "integer", "minimum": 1, "maximum": 300 }
+        },
+        "required": ["cols", "rows"]
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["tabId"]
+      }
+    },
+    {
+      "id": "terminal_wait",
+      "title": "等待终端空闲",
+      "description": "Wait until a terminal has no new output for idleMs, then return only text not delivered by an earlier wait.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tabId": { "type": "string" },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 1800000
+          },
+          "idleMs": { "type": "integer", "minimum": 100, "maximum": 5000 }
+        }
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["tabId"]
+      }
+    },
+    {
+      "id": "terminal_close",
+      "title": "关闭终端",
+      "description": "Close a terminal tab and terminate its PTY.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "tabId": { "type": "string" } }
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["tabId"]
+      }
+    },
+    {
+      "id": "terminal_focus",
+      "title": "聚焦终端",
+      "description": "Bring a persistent terminal tab to the foreground in the right panel.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "tabId": { "type": "string", "minLength": 1 } },
+        "required": ["tabId"]
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate",
+        "targets": ["tabId"]
+      }
+    },
+    {
+      "id": "terminal_list",
+      "title": "列出终端",
+      "description": "List persistent terminal tabs in this conversation with IDs, directories and active state.",
+      "requiredPermissions": ["process.spawn"],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "presentation": {
+        "icon": "terminal",
+        "kind": "terminal",
+        "tone": "slate"
+      }
+    }
+  ],
+  "locales": {
+    "en": {
+      "description": "Run build, test and Git commands with approval, cancellation and timeouts."
+    },
+    "zh-CN": {
+      "name": "终端"
+    }
+  }
+}

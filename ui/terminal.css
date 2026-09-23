@@ -1,0 +1,123 @@
+html,
+body,
+#root,
+.terminal-shell,
+.terminal-host {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #101318;
+}
+.terminal-shell {
+  position: relative;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.terminal-error {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #5f1d24;
+  color: #fff;
+  font: 12px system-ui;
+}
+.xterm {
+  height: 100%;
+  position: relative;
+  user-select: none;
+}
+.xterm.focus,
+.xterm:focus {
+  outline: none;
+}
+.xterm .xterm-helpers {
+  position: absolute;
+  top: 0;
+  z-index: 5;
+}
+.xterm .xterm-helper-textarea {
+  position: absolute;
+  opacity: 0;
+  left: -9999em;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: -5;
+  white-space: nowrap;
+  overflow: hidden;
+  resize: none;
+}
+.xterm .composition-view {
+  background: #000;
+  color: #fff;
+  display: none;
+  position: absolute;
+  white-space: nowrap;
+  z-index: 1;
+}
+.xterm .composition-view.active {
+  display: block;
+}
+.xterm .xterm-viewport {
+  position: absolute;
+  inset: 0;
+  overflow-y: scroll;
+  background-color: #101318;
+}
+.xterm .xterm-screen {
+  position: relative;
+}
+.xterm .xterm-screen canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.xterm .xterm-scroll-area {
+  visibility: hidden;
+}
+.xterm-char-measure-element {
+  display: inline-block;
+  visibility: hidden;
+  position: absolute;
+  left: -9999em;
+  top: 0;
+  line-height: normal;
+}
+.xterm.enable-mouse-events {
+  cursor: default;
+}
+.xterm.xterm-cursor-pointer,
+.xterm .xterm-cursor-pointer {
+  cursor: pointer;
+}
+.xterm.column-select.focus {
+  cursor: crosshair;
+}
+.xterm .xterm-accessibility,
+.xterm .xterm-message {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  pointer-events: none;
+  z-index: 10;
+}
+.xterm .live-region {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.xterm-dim {
+  opacity: 1 !important;
+}
+.xterm-underline-1 {
+  text-decoration: underline;
+}
+.xterm-strikethrough {
+  text-decoration: line-through;
+}
