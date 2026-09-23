@@ -1,258 +1,53 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Button,
-  Field,
-  frontend,
-  SettingsCard,
-  SettingsPage,
-} from "@modera/plugin-sdk/react";
-import { settingsAction, useSettings } from "./use-settings";
+import { useEffect, useState } from "react";
+import { FolderOpen } from "lucide-react";
+import { Button, DialogNotice, Input, Select, Switch, UiProvider } from "@modera/ui";
+import { FieldRow, Form, FormItem, SettingsColumns, SettingsPage, SettingsPanel } from "@modera/ui/settings";
+import "@modera/ui/styles.css";
+import { frontend, mountPlugin, settingsAction, useSettings } from "@modera/plugin-sdk/react";
 
 interface Detection {
   shells: { id: string; label: string; path: string }[];
   distributions: string[];
 }
 
-function ShellPicker({
-  value,
-  shells,
-  zh,
-  onChange,
-}: {
-  value: string;
-  shells: Detection["shells"];
-  zh: boolean;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const selected = shells.find(
-    (item) => item.path.toLowerCase() === value.toLowerCase(),
-  );
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    window.addEventListener("pointerdown", close);
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-  const choose = (next: string) => {
-    setOpen(false);
-    onChange(next);
-  };
-  return (
-    <div ref={root} className="shell-picker">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="shell-picker__trigger"
-      >
-        <span>
-          <span style={{ display: "block" }}>
-            {value === "auto"
-              ? zh
-                ? "留空则自动检测"
-                : "Leave empty to auto detect"
-              : selected?.label || (zh ? "自定义 Shell" : "Custom shell")}
-          </span>
-          {value !== "auto" && <small>{value}</small>}
-        </span>
-        <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16">
-          <path d="m5.5 7.5 4.5 4 4.5-4" />
-        </svg>
-      </button>
-      {open && (
-        <div role="listbox" className="shell-picker__menu">
-          <button
-            type="button"
-            role="option"
-            aria-selected={value === "auto"}
-            onClick={(event) => {
-              event.stopPropagation();
-              choose("auto");
-            }}
-            className="shell-picker__option"
-            data-selected={value === "auto" || undefined}
-          >
-            {zh ? "留空则自动检测" : "Leave empty to auto detect"}
-          </button>
-          {shells.map((item) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={item.path === value}
-              key={item.path}
-              onClick={(event) => {
-                event.stopPropagation();
-                choose(item.path);
-              }}
-              className="shell-picker__option"
-              data-selected={item.path === value || undefined}
-            >
-              <span>{item.label}</span>
-              <small>{item.path}</small>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              void frontend()
-                .settings.pickFile()
-                .then((path) => path && choose(path));
-            }}
-            className="shell-picker__option shell-picker__browse"
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16">
-              <path d="M2.75 6.5h14.5v8.25a1.5 1.5 0 0 1-1.5 1.5H4.25a1.5 1.5 0 0 1-1.5-1.5V6.5Z" />
-              <path d="M2.75 7V5.25a1.5 1.5 0 0 1 1.5-1.5h3l1.5 1.75h7a1.5 1.5 0 0 1 1.5 1.5" />
-            </svg>
-            {zh ? "浏览" : "Browse"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TerminalSettings() {
   const settings = useSettings({ autoSave: true });
-  const [detected, setDetected] = useState<Detection>({
-    shells: [],
-    distributions: [],
-  });
+  const [detected, setDetected] = useState<Detection>({ shells: [], distributions: [] });
   useEffect(() => {
-    void settings.run(async () =>
-      setDetected(await settingsAction<Detection>("detect")),
-    );
+    void frontend().ready().catch(() => {});
+    void settings.run(async () => setDetected(await settingsAction<Detection>("detect")));
   }, []);
-  if (!settings.config)
-    return (
-      <SettingsPage title={settings.zh ? "终端设置" : "Terminal settings"}>
-        <p>{settings.error || (settings.zh ? "正在加载…" : "Loading…")}</p>
-      </SettingsPage>
-    );
+  const t = (zh: string, en: string) => settings.zh ? zh : en;
   const value = (key: string) => settings.values[key];
-  const set = (key: string, next: string | number | boolean) =>
-    settings.setValues((current) => ({ ...current, [key]: next }));
-  const integratedShell = String(value("integratedShell"));
-  return (
-    <SettingsPage title={settings.zh ? "终端设置" : "Terminal settings"}>
-      <p className="df-description">
-        {settings.zh
-          ? "分别配置智能体命令的运行环境和侧边栏集成终端。Shell 修改后，已打开的集成终端会自动刷新。"
-          : "Configure the agent command environment and sidebar terminal independently. Open terminals refresh after the shell changes."}
-      </p>
-      <SettingsCard title={settings.zh ? "智能体环境" : "Agent environment"}>
-        <p>
-          {settings.zh
-            ? "选择智能体在 Windows 上执行终端命令的位置。"
-            : "Choose where agent terminal commands run on Windows."}
-        </p>
-        <Field label={settings.zh ? "运行位置" : "Run commands in"}>
-          <select
-            value={String(value("agentEnvironment"))}
-            onChange={(event) => set("agentEnvironment", event.target.value)}
-          >
-            <option value="windows-native">
-              Windows {settings.zh ? "原生" : "native"}
-            </option>
-            <option value="wsl">Windows Subsystem for Linux (WSL2)</option>
-          </select>
-        </Field>
-        {value("agentEnvironment") === "wsl" && (
-          <Field label={settings.zh ? "WSL 发行版" : "WSL distribution"}>
-            <select
-              value={String(value("wslDistribution"))}
-              onChange={(event) => set("wslDistribution", event.target.value)}
-            >
-              <option value="">
-                {settings.zh ? "系统默认" : "System default"}
-              </option>
-              {detected.distributions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </Field>
-        )}
-      </SettingsCard>
-      <SettingsCard title={settings.zh ? "集成终端" : "Integrated terminal"}>
-        <p>
-          {settings.zh
-            ? "选择侧边栏中新终端使用的 Shell。它不会改变智能体环境。"
-            : "Choose the shell for new sidebar terminals. This does not change the agent environment."}
-        </p>
-        <Field
-          label={settings.zh ? "集成终端 Shell" : "Integrated terminal shell"}
-        >
-          <ShellPicker
-            value={integratedShell}
-            shells={detected.shells}
-            zh={settings.zh}
-            onChange={(next) => set("integratedShell", next)}
-          />
-        </Field>
-        <Field label={settings.zh ? "字体" : "Font family"}>
-          <input
-            value={String(value("fontFamily"))}
-            onChange={(event) => set("fontFamily", event.target.value)}
-          />
-        </Field>
-        <div className="df-grid">
-          <Field label={settings.zh ? "字号" : "Font size"}>
-            <input
-              type="number"
-              min={6}
-              max={72}
-              value={Number(value("fontSize"))}
-              onChange={(event) => set("fontSize", Number(event.target.value))}
-            />
-          </Field>
-          <Field label={settings.zh ? "行高" : "Line height"}>
-            <input
-              type="number"
-              min={0.5}
-              max={3}
-              step={0.1}
-              value={Number(value("lineHeight"))}
-              onChange={(event) =>
-                set("lineHeight", Number(event.target.value))
-              }
-            />
-          </Field>
-        </div>
-        <label className="df-check">
-          <input
-            className="df-switch"
-            type="checkbox"
-            checked={Boolean(value("gpuRendering"))}
-            onChange={(event) => set("gpuRendering", event.target.checked)}
-          />
-          {settings.zh ? "启用 GPU 渲染" : "Enable GPU rendering"}
-        </label>
-      </SettingsCard>
-      {settings.message && (
-        <p
-          role={settings.failed ? "alert" : "status"}
-          style={{ color: settings.failed ? "#b42318" : undefined }}
-        >
-          {settings.message}
-        </p>
-      )}
+  const set = (key: string, next: string | number | boolean) => settings.setValues((current) => ({ ...current, [key]: next }));
+  const shell = String(value("integratedShell") ?? "auto");
+  const shellOptions = [
+    { value: "auto", label: t("自动检测", "Auto detect") },
+    ...detected.shells.map((item) => ({ value: item.path, label: item.label, description: item.path })),
+  ];
+  if (shell !== "auto" && !shellOptions.some((item) => item.value === shell))
+    shellOptions.push({ value: shell, label: t("自定义 Shell", "Custom shell"), description: shell });
+  const browse = () => void frontend().settings.pickFile().then((path) => { if (path) set("integratedShell", path); });
+  const number = (key: string, raw: string) => { if (raw !== "" && Number.isFinite(Number(raw))) set(key, Number(raw)); };
+  return <UiProvider theme="system" locale={settings.zh ? "zh-CN" : "en"} className="terminal-settings-ui">
+    <SettingsPage title={t("终端设置", "Terminal settings")} description={t("分别配置智能体命令的运行环境和侧边栏集成终端。Shell 修改后，已打开的集成终端会自动刷新。", "Configure the agent command environment and sidebar terminal independently. Open terminals refresh after the shell changes.")}>
+      {!settings.config ? <DialogNotice tone={settings.error ? "error" : "default"}>{settings.error || t("正在加载…", "Loading…")}</DialogNotice> : <SettingsColumns columns={1}>
+        <SettingsPanel title={t("智能体环境", "Agent environment")} description={t("选择智能体在 Windows 上执行终端命令的位置。", "Choose where agent terminal commands run on Windows.")}>
+          <Form><FormItem label={t("运行位置", "Run commands in")}><Select label={t("运行位置", "Run commands in")} value={String(value("agentEnvironment"))} onValueChange={(next) => set("agentEnvironment", next)} options={[{ value: "windows-native", label: t("Windows 原生", "Windows native") }, { value: "wsl", label: "Windows Subsystem for Linux (WSL2)" }]} /></FormItem>
+          {value("agentEnvironment") === "wsl" && <FormItem label={t("WSL 发行版", "WSL distribution")}><Select label={t("WSL 发行版", "WSL distribution")} value={String(value("wslDistribution") || "default")} onValueChange={(next) => set("wslDistribution", next === "default" ? "" : next)} options={[{ value: "default", label: t("系统默认", "System default") }, ...detected.distributions.map((item) => ({ value: item, label: item }))]} /></FormItem>}</Form>
+        </SettingsPanel>
+        <SettingsPanel title={t("集成终端", "Integrated terminal")} description={t("选择侧边栏中新终端使用的 Shell。它不会改变智能体环境。", "Choose the shell for new sidebar terminals. This does not change the agent environment.")}>
+          <Form columns={2}>
+            <FormItem label={t("集成终端 Shell", "Integrated terminal shell")} span="full"><FieldRow><Select label={t("集成终端 Shell", "Integrated terminal shell")} value={shell} onValueChange={(next) => set("integratedShell", next)} options={shellOptions} /><Button variant="outline" onClick={browse}><FolderOpen size={14} />{t("浏览", "Browse")}</Button></FieldRow></FormItem>
+            <FormItem label={t("字体", "Font family")} span="full"><Input label={t("字体", "Font family")} hideLabel value={String(value("fontFamily"))} onChange={(next) => set("fontFamily", next)} /></FormItem>
+            <FormItem label={t("字号", "Font size")}><Input label={t("字号", "Font size")} hideLabel type="number" min={6} max={72} unit="px" unitWidth="full" value={Number(value("fontSize"))} onChange={(next) => number("fontSize", next)} /></FormItem>
+            <FormItem label={t("行高", "Line height")}><Input label={t("行高", "Line height")} hideLabel type="number" min={0.5} max={3} step={0.1} value={Number(value("lineHeight"))} onChange={(next) => number("lineHeight", next)} /></FormItem>
+            <FormItem variant="inline" bordered span="full" label={t("启用 GPU 渲染", "Enable GPU rendering")}><Switch label={t("启用 GPU 渲染", "Enable GPU rendering")} checked={Boolean(value("gpuRendering"))} onCheckedChange={(next) => set("gpuRendering", next)} /></FormItem>
+          </Form>
+        </SettingsPanel>
+      </SettingsColumns>}
+      {settings.message && <DialogNotice tone={settings.failed ? "error" : "default"}>{settings.message}</DialogNotice>}
     </SettingsPage>
-  );
+  </UiProvider>;
 }
-import { mountPlugin } from "@modera/plugin-sdk/react";
 mountPlugin(<TerminalSettings />);
