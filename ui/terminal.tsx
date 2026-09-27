@@ -17,6 +17,13 @@ function TerminalPanel() {
   const integratedShell = String(values.integratedShell ?? "auto");
   useEffect(() => {
     if (!element.current || !snapshot) return;
+    const css = getComputedStyle(document.documentElement);
+    const readTheme = () => ({
+      background: css.getPropertyValue("--mu-page").trim() || "#101318",
+      foreground: css.getPropertyValue("--mu-ink").trim() || "#e6e9ef",
+      cursor: css.getPropertyValue("--mu-accent").trim() || "#e6e9ef",
+      selectionBackground: css.getPropertyValue("--mu-soft").trim() || "#ffffff33",
+    });
     const terminal = new Terminal({
       cursorBlink: true,
       convertEol: false,
@@ -26,12 +33,7 @@ function TerminalPanel() {
       fontSize: Number(values.fontSize ?? 13),
       lineHeight: Number(values.lineHeight ?? 1.2),
       scrollback: Number(values.scrollback ?? 5000),
-      theme: {
-        background: "#101318",
-        foreground: "#e6e9ef",
-        cursor: "#e6e9ef",
-        selectionBackground: "#ffffff33",
-      },
+      theme: readTheme(),
     });
     terminalRef.current = terminal;
     const fit = new FitAddon();
@@ -52,6 +54,8 @@ function TerminalPanel() {
       ),
     );
     terminal.open(element.current);
+    const themeObserver = new MutationObserver(() => { terminal.options.theme = readTheme(); });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
     fit.fit();
     const initial = snapshot.view.data as {
       tabId?: string;
@@ -129,6 +133,7 @@ function TerminalPanel() {
         .catch((e) => setError(String(e)));
     }, 250);
     return () => {
+      themeObserver.disconnect();
       observer.disconnect();
       cancelAnimationFrame(fitFrame);
       if (resizeTimer) clearTimeout(resizeTimer);
