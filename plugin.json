@@ -8,8 +8,9 @@
   "category": "development",
   "icon": "terminal",
   "main": "dist/index.cjs",
+  "hostRenderers": { "terminal-result": { "entry": "terminal-result.js", "root": "dist/ui" } },
   "permissions": ["process.spawn", "storage.read", "storage.write"],
-  "extensions": ["tool.result", "settings", "panel"],
+  "extensions": ["tool.result", "tool.approval", "settings", "panel"],
   "configScope": "global",
   "config": {
     "agentEnvironment": {
