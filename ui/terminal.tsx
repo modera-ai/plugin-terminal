@@ -17,13 +17,14 @@ function TerminalPanel() {
   const integratedShell = String(values.integratedShell ?? "auto");
   useEffect(() => {
     if (!element.current || !snapshot) return;
-    const css = getComputedStyle(document.documentElement);
-    const readTheme = () => ({
+    const readTheme = () => {
+      const css = getComputedStyle(document.documentElement);
+      return ({
       background: css.getPropertyValue("--mu-page").trim() || "#101318",
       foreground: css.getPropertyValue("--mu-ink").trim() || "#e6e9ef",
       cursor: css.getPropertyValue("--mu-accent").trim() || "#e6e9ef",
       selectionBackground: css.getPropertyValue("--mu-soft").trim() || "#ffffff33",
-    });
+    }); };
     const terminal = new Terminal({
       cursorBlink: true,
       convertEol: false,
@@ -38,6 +39,7 @@ function TerminalPanel() {
     terminalRef.current = terminal;
     const fit = new FitAddon();
     terminal.loadAddon(fit);
+    terminal.open(element.current);
     if (values.gpuRendering !== false) {
       try {
         terminal.loadAddon(new WebglAddon());
@@ -53,33 +55,33 @@ function TerminalPanel() {
             .catch(() => {}),
       ),
     );
-    terminal.open(element.current);
-    const themeObserver = new MutationObserver(() => { terminal.options.theme = readTheme(); });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    const stopTheme = frontend().onChanged(() => { terminal.options.theme = readTheme(); });
     fit.fit();
     const initial = snapshot.view.data as {
       tabId?: string;
       terminal?: {
         raw?: string;
         baseOffset?: number;
+        cursor?: number;
         nextCursor?: number;
         alive?: boolean;
         exitCode?: number | null;
       };
     };
     const id = String(initial.tabId || "");
-    let cursor = Number(initial.terminal?.baseOffset || 0);
+    let cursor = Number(initial.terminal?.cursor ?? initial.terminal?.baseOffset ?? 0);
     let exited = false;
     const apply = (data: typeof initial) => {
       const value = data.terminal;
       if (!value) return;
       const base = Number(value.baseOffset || 0);
       const raw = String(value.raw || "");
+      if (Number(value.nextCursor ?? base + raw.length) < cursor) return;
       if (cursor < base) {
         terminal.reset();
         cursor = base;
       }
-      const offset = Math.max(0, cursor - base);
+      const offset = Math.max(0, cursor - Math.max(base, value.cursor ?? base));
       if (offset < raw.length) terminal.write(raw.slice(offset));
       cursor = Number(value.nextCursor ?? base + raw.length);
       if (!value.alive && !exited) {
@@ -91,9 +93,13 @@ function TerminalPanel() {
     };
     apply(initial);
     const input = terminal.onData((data) => {
+      lastInput = performance.now();
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(poll, 16);
       if (id)
         void frontend()
-          .action("write", JSON.stringify({ data }))
+          .action("write", JSON.stringify({ data, cursor }))
+          .then(next => { if (!stopped) apply(next.view.data as typeof initial); })
           .catch((e) => setError(String(e)));
     });
     let fitFrame = 0;
@@ -126,19 +132,31 @@ function TerminalPanel() {
     });
     observer.observe(element.current);
     terminal.focus();
-    const poll = setInterval(() => {
-      void frontend()
-        .action("refresh")
-        .then((next) => apply(next.view.data as typeof initial))
-        .catch((e) => setError(String(e)));
-    }, 250);
+    let stopped = false;
+    let polling = false;
+    let lastInput = 0;
+    let pollTimer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      if (stopped || polling) return;
+      polling = true;
+      let active = false;
+      try {
+        const next = await frontend().action("refresh", JSON.stringify({ cursor }));
+        active = Boolean((next.view.data as typeof initial).terminal?.raw);
+        if (!stopped) apply(next.view.data as typeof initial);
+      } catch (e) { if (!stopped) setError(String(e)); }
+      polling = false;
+      if (!stopped) pollTimer = setTimeout(poll, document.hidden ? 500 : active || performance.now() - lastInput < 500 ? 40 : 250);
+    };
+    pollTimer = setTimeout(poll, 40);
     return () => {
-      themeObserver.disconnect();
+      stopped = true;
+      stopTheme();
       observer.disconnect();
       cancelAnimationFrame(fitFrame);
       if (resizeTimer) clearTimeout(resizeTimer);
       terminalResize.dispose();
-      clearInterval(poll);
+      clearTimeout(pollTimer);
       input.dispose();
       terminal.dispose();
       if (terminalRef.current === terminal) terminalRef.current = null;

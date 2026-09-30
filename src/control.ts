@@ -64,6 +64,7 @@ interface ControlledTerminal {
   updatedAt: number;
   alive: boolean;
   exitCode: number | null;
+  invalidationTimer?: ReturnType<typeof setTimeout>;
 }
 
 export interface OpenTerminalInput {
@@ -197,12 +198,17 @@ export class TerminalControl {
       const removed = Math.max(0, combined.length - MAX_BUFFER);
       item.raw = combined.slice(-MAX_BUFFER);
       item.baseOffset += removed;
-      item.plain = stripAnsi(item.raw);
       item.revision++;
       item.updatedAt = Date.now();
-      this.host.invalidateUi?.(item.ownerSession);
+      if (!item.invalidationTimer) item.invalidationTimer = setTimeout(() => {
+        item.invalidationTimer = undefined;
+        if (!this.host.signal.aborted) this.host.invalidateUi?.(item.ownerSession);
+      }, 100);
+      item.invalidationTimer.unref();
     });
     processHandle.onExit(({ exitCode }) => {
+      if (item.invalidationTimer) clearTimeout(item.invalidationTimer);
+      item.invalidationTimer = undefined;
       item.alive = false;
       item.exitCode = exitCode;
       item.revision++;
@@ -301,6 +307,7 @@ export class TerminalControl {
       }
       if (Date.now() - quiet >= idleMs) break;
     }
+    item.plain = stripAnsi(item.raw);
     const text = item.plain.slice(item.delivered);
     item.delivered = item.plain.length;
     return {
@@ -350,6 +357,7 @@ export class TerminalControl {
     return this.read({ tabId, cursor }, context);
   }
   private kill(item: ControlledTerminal) {
+    if (item.invalidationTimer) clearTimeout(item.invalidationTimer);
     this.sessions.delete(item.id);
     if (item.alive)
       try {
