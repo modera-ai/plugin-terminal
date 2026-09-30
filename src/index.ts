@@ -60,6 +60,14 @@ export const activate: PluginModule["activate"] = async (host) => {
           },
         },
         actions: ["refresh", "write", "resize", "close"],
+        bindTerminal(request,context) {
+          const panelKey = `${context.sessionId}:${request.resource || "default"}`;
+          let tabId = "";
+          try {tabId=String(JSON.parse(request.resource || "{}").tabId || "");} catch { /* launcher resource */ }
+          tabId ||= panelTabs.get(panelKey) || "";
+          if (!tabId) throw new Error("Terminal tab unavailable");
+          return control.port(tabId,context);
+        },
         async render(request, context) {
           const panelKey = `${context.sessionId}:${request.resource || "default"}`;
           let tabId = "";

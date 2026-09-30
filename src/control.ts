@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { basename } from "node:path";
 import { randomUUID } from "node:crypto";
 import * as pty from "node-pty";
-import type { PluginContext, ToolContext } from "@modera/plugin-sdk";
+import type { PluginContext, ToolContext, PluginTerminalPort, TerminalOutputEvent, TerminalExitEvent } from "@modera/plugin-sdk";
 import {
   childEnvironment,
   terminalConfiguration,
@@ -65,6 +65,7 @@ interface ControlledTerminal {
   alive: boolean;
   exitCode: number | null;
   invalidationTimer?: ReturnType<typeof setTimeout>;
+  listeners: Set<{output:(event:TerminalOutputEvent)=>void;exit:(event:TerminalExitEvent)=>void}>;
 }
 
 export interface OpenTerminalInput {
@@ -190,16 +191,20 @@ export class TerminalControl {
       updatedAt: Date.now(),
       alive: true,
       exitCode: null,
+      listeners: new Set(),
     };
     this.sessions.set(item.id, item);
     this.focused.set(this.scope(context), item.id);
     processHandle.onData((data) => {
+      const offset = item.baseOffset + item.raw.length;
       const combined = item.raw + data;
       const removed = Math.max(0, combined.length - MAX_BUFFER);
       item.raw = combined.slice(-MAX_BUFFER);
       item.baseOffset += removed;
       item.revision++;
       item.updatedAt = Date.now();
+      for (const listener of item.listeners) listener.output({id:item.id,data,offset});
+      if (item.listeners.size) return;
       if (!item.invalidationTimer) item.invalidationTimer = setTimeout(() => {
         item.invalidationTimer = undefined;
         if (!this.host.signal.aborted) this.host.invalidateUi?.(item.ownerSession);
@@ -213,6 +218,7 @@ export class TerminalControl {
       item.exitCode = exitCode;
       item.revision++;
       item.updatedAt = Date.now();
+      for (const listener of item.listeners) listener.exit({id:item.id,exitCode});
       this.host.invalidateUi?.(item.ownerSession);
     });
     if (show) await this.show(item, context);
@@ -268,6 +274,23 @@ export class TerminalControl {
     const item = this.owned(context, tabId);
     if (!item.alive) throw new Error("Terminal process has exited");
     item.process.write(data);
+  }
+  port(tabId:string,context:ToolContext): PluginTerminalPort {
+    const item = this.owned(context,tabId);
+    return {
+      snapshot: () => {
+        const current = this.owned(context,tabId);
+        return {id:current.id,shell:current.shell,cwd:current.cwd,raw:current.raw,baseOffset:current.baseOffset,nextCursor:current.baseOffset+current.raw.length,alive:current.alive,exitCode:current.exitCode};
+      },
+      write: data => this.writeRaw(tabId,data,context),
+      resize: (cols,rows) => {this.resize({tabId,cols,rows},context);},
+      subscribe: (output,exit) => {
+        this.owned(context,tabId);
+        const listener = {output,exit};
+        item.listeners.add(listener);
+        return () => {item.listeners.delete(listener);};
+      },
+    };
   }
   resize(
     input: { tabId?: string; cols: number; rows: number },
@@ -357,6 +380,7 @@ export class TerminalControl {
     return this.read({ tabId, cursor }, context);
   }
   private kill(item: ControlledTerminal) {
+    item.listeners.clear();
     if (item.invalidationTimer) clearTimeout(item.invalidationTimer);
     this.sessions.delete(item.id);
     if (item.alive)

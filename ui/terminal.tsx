@@ -5,6 +5,7 @@ import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { frontend, usePluginSnapshot } from "@modera/plugin-sdk/react";
+import type { TerminalOutputEvent, TerminalExitEvent } from "@modera/plugin-sdk";
 
 function TerminalPanel() {
   const element = useRef<HTMLDivElement>(null);
@@ -14,7 +15,6 @@ function TerminalPanel() {
   const values =
     (snapshot?.view.data as { config?: Record<string, unknown> } | undefined)
       ?.config ?? {};
-  const integratedShell = String(values.integratedShell ?? "auto");
   useEffect(() => {
     if (!element.current || !snapshot) return;
     const readTheme = () => {
@@ -55,52 +55,46 @@ function TerminalPanel() {
             .catch(() => {}),
       ),
     );
-    const stopTheme = frontend().onChanged(() => { terminal.options.theme = readTheme(); });
+    const api = frontend().terminal;
+    const stopTheme = frontend().onThemeChanged(() => { terminal.options.theme = readTheme(); });
     fit.fit();
-    const initial = snapshot.view.data as {
-      tabId?: string;
-      terminal?: {
-        raw?: string;
-        baseOffset?: number;
-        cursor?: number;
-        nextCursor?: number;
-        alive?: boolean;
-        exitCode?: number | null;
-      };
-    };
-    const id = String(initial.tabId || "");
-    let cursor = Number(initial.terminal?.cursor ?? initial.terminal?.baseOffset ?? 0);
+    let id = "";
+    let cursor = 0;
+    let stopped = false;
     let exited = false;
-    const apply = (data: typeof initial) => {
-      const value = data.terminal;
-      if (!value) return;
-      const base = Number(value.baseOffset || 0);
-      const raw = String(value.raw || "");
-      if (Number(value.nextCursor ?? base + raw.length) < cursor) return;
-      if (cursor < base) {
-        terminal.reset();
-        cursor = base;
-      }
-      const offset = Math.max(0, cursor - Math.max(base, value.cursor ?? base));
-      if (offset < raw.length) terminal.write(raw.slice(offset));
-      cursor = Number(value.nextCursor ?? base + raw.length);
-      if (!value.alive && !exited) {
-        exited = true;
-        terminal.writeln(
-          `\r\n[process exited with code ${value.exitCode ?? "?"}]`,
-        );
-      }
+    const buffered: TerminalOutputEvent[] = [];
+    let pendingExit: TerminalExitEvent | undefined;
+    const apply = (event: TerminalOutputEvent) => {
+      if (stopped) return;
+      if (!id) {buffered.push(event);return;}
+      if (event.id !== id) return;
+      const offset = event.offset ?? cursor;
+      const skip = Math.max(0,cursor-offset);
+      if (skip < event.data.length) terminal.write(event.data.slice(skip));
+      cursor = Math.max(cursor,offset+event.data.length);
     };
-    apply(initial);
+    const exit = (event: TerminalExitEvent) => {
+      if (stopped) return;
+      if (!id) {pendingExit=event;return;}
+      if (event.id !== id || exited) return;
+      exited = true;
+      terminal.writeln(`\r\n[process exited with code ${event.exitCode}]`);
+    };
+    const stopOutput = api.onOutput(apply);
+    const stopExit = api.onExit(exit);
+    // Subscribe before replay to avoid losing output while attach is resolving.
+    void api.attach().then(info => {
+      if (stopped) {void api.close(info.id).catch(()=>{});return;}
+      id = info.id;
+      terminal.write(info.raw);
+      cursor = info.nextCursor;
+      for (const event of buffered.splice(0)) apply(event);
+      if (pendingExit) exit(pendingExit);
+      if (!info.alive) exit({id,exitCode:info.exitCode ?? -1});
+      if (info.alive) void api.resize(id,terminal.cols,terminal.rows).catch(e=>setError(String(e)));
+    }).catch(e => {if (!stopped) {buffered.length=0;setError(String(e));}});
     const input = terminal.onData((data) => {
-      lastInput = performance.now();
-      clearTimeout(pollTimer);
-      pollTimer = setTimeout(poll, 16);
-      if (id)
-        void frontend()
-          .action("write", JSON.stringify({ data, cursor }))
-          .then(next => { if (!stopped) apply(next.view.data as typeof initial); })
-          .catch((e) => setError(String(e)));
+      if (id && !exited) void api.write(id,data).catch(e=>{if(!stopped)setError(String(e));});
     });
     let fitFrame = 0;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -125,43 +119,27 @@ function TerminalPanel() {
       resizeTimer = setTimeout(() => {
         resizeTimer = undefined;
         if (id)
-          void frontend()
-            .action("resize", JSON.stringify({ cols, rows }))
+          void api.resize(id,cols,rows)
             .catch(() => {});
       }, 120);
     });
     observer.observe(element.current);
     terminal.focus();
-    let stopped = false;
-    let polling = false;
-    let lastInput = 0;
-    let pollTimer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
-      if (stopped || polling) return;
-      polling = true;
-      let active = false;
-      try {
-        const next = await frontend().action("refresh", JSON.stringify({ cursor }));
-        active = Boolean((next.view.data as typeof initial).terminal?.raw);
-        if (!stopped) apply(next.view.data as typeof initial);
-      } catch (e) { if (!stopped) setError(String(e)); }
-      polling = false;
-      if (!stopped) pollTimer = setTimeout(poll, document.hidden ? 500 : active || performance.now() - lastInput < 500 ? 40 : 250);
-    };
-    pollTimer = setTimeout(poll, 40);
     return () => {
       stopped = true;
       stopTheme();
+      stopOutput();
+      stopExit();
+      if (id) void api.close(id).catch(()=>{});
       observer.disconnect();
       cancelAnimationFrame(fitFrame);
       if (resizeTimer) clearTimeout(resizeTimer);
       terminalResize.dispose();
-      clearTimeout(pollTimer);
       input.dispose();
       terminal.dispose();
       if (terminalRef.current === terminal) terminalRef.current = null;
     };
-  }, [Boolean(snapshot), integratedShell]);
+  }, [Boolean(snapshot)]);
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
