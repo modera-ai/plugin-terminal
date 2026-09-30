@@ -24,10 +24,20 @@ export function terminalUi(sessions: TerminalSessions, interactive: InteractiveC
     },
     async render(request, context) {
       const pending = slot === "tool.result" && request.toolCallId && request.tool?.result === undefined;
-      const data = pending ? interactive.snapshot(request.toolCallId!, context) : JSON.parse(request.tool?.result ?? "null");
+      const input = request.tool?.input as { description?: string; command?: string; interactive?: boolean } | undefined;
+      const interactiveData = pending && input?.interactive === true
+        ? interactive.snapshotIfAvailable(request.toolCallId!, context) : undefined;
+      const data = pending ? interactiveData ?? {
+        description: input?.description,
+        command: input?.command,
+        cwd: context.workspacePath,
+        status: "running",
+        output: "",
+        interactive: input?.interactive === true,
+        inputReady: false,
+      } : JSON.parse(request.tool?.result ?? "null");
       if (!data || data.error) throw new Error("Terminal preview/result unavailable");
       const current = data.sessionId ? sessions.snapshot(data.sessionId, context) : undefined;
-      const input = request.tool?.input as { description?: string } | undefined;
       return {
         title: String(data.description ?? input?.description ?? "Terminal"),
         live: (!!pending && data.status === "running") || (!!current && !current.done),
@@ -36,7 +46,7 @@ export function terminalUi(sessions: TerminalSessions, interactive: InteractiveC
           ...(current ?? {}),
           approval: slot === "tool.approval",
           inputReady: !!pending && !!data.interactive && data.status === "running" && !!data.inputReady,
-          canStop: (!!pending && !!data.interactive && data.status === "running") || (!!current && !current.done),
+          canStop: (!!interactiveData && interactiveData.status === "running") || (!!current && !current.done),
           unavailable: !!data.sessionId && !current,
           log: slot === "tool.result" ? await logs.snapshot(request, context) : undefined,
         },
