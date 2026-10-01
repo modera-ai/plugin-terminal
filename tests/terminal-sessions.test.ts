@@ -1,4 +1,4 @@
-import { mkdtemp, rm, realpath, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, realpath, writeFile } from "node:fs/promises";
 import { TerminalSessions } from "../src/sessions";
 import { ProgressGuard } from "../../default-agent/src/run-budget";
 import { findShell } from "../src/shell";
@@ -28,6 +28,7 @@ it("foreground yield preserves a running command without a deadline, supports in
   runtime.add({
     manifest,
     load: async () => ({ activate }),
+    readFrontend: async () => ({ body: new Uint8Array(await readFile(new URL("../dist/ui/terminal-result.js", import.meta.url))), mime: "text/javascript" }),
   });
   await runtime.reconcile(new Set([manifest.id]));
   const context = {

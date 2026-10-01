@@ -1,5 +1,4 @@
 import type {
-  PluginUiNode,
   PluginUiRequest,
   ToolContext,
 } from "@modera/plugin-sdk";
@@ -33,55 +32,12 @@ export class LogCard {
       this.cursors.delete(this.cursors.keys().next().value!);
     this.cursors.set(key, action === "log-next" ? page.nextCursor : 0);
   }
-  async render(
-    request: PluginUiRequest,
-    context: ToolContext,
-  ): Promise<PluginUiNode[]> {
+  async snapshot(request: PluginUiRequest, context: ToolContext) {
     const data = JSON.parse(request.tool?.result ?? "null");
-    if (!data?.logPath) return [];
-    const zh = request.locale.startsWith("zh");
-    const nodes: PluginUiNode[] = [
-      {
-        type: "text",
-        tone: "muted",
-        text: `${zh ? "日志" : "Log"}: ${data.logPath}`,
-      },
-    ];
+    if (!data?.logPath) return undefined;
     const cursor = this.cursors.get(this.key(request, context));
-    if (cursor === undefined)
-      return [
-        ...nodes,
-        {
-          type: "button",
-          action: "log-open",
-          label: zh ? "查看日志" : "View log",
-        },
-      ];
+    if (cursor === undefined) return { path: data.logPath, open: false };
     const page = await this.logs.read(data.sessionId, cursor, context);
-    nodes.push(
-      { type: "code", text: page.output || (zh ? "暂无输出" : "No output") },
-      {
-        type: "text",
-        tone: "muted",
-        text: `${cursor}–${page.nextCursor} / ${page.sizeBytes} ${zh ? "字节" : "bytes"}`,
-      },
-      {
-        type: "button",
-        action: "log-open",
-        label: zh ? "回到开头" : "First page",
-      },
-    );
-    if (page.hasMore)
-      nodes.push({
-        type: "button",
-        action: "log-next",
-        label: zh ? "下一页" : "Next page",
-      });
-    nodes.push({
-      type: "button",
-      action: "log-close",
-      label: zh ? "收起日志" : "Hide log",
-    });
-    return nodes;
+    return { path: data.logPath, open: true, cursor, ...page };
   }
 }

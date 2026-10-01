@@ -42,6 +42,7 @@ export const activate: PluginModule["activate"] = async (host) => {
       .map((item) => [item.id, item]),
   );
   const panelTabs = new Map<string, string>();
+  const panelCursors = new Map<string, number>();
   const panelUi: PluginUiContribution | undefined = host.resourcePath
     ? {
         id: "modera.terminal.panel",
@@ -59,6 +60,14 @@ export const activate: PluginModule["activate"] = async (host) => {
           },
         },
         actions: ["refresh", "write", "resize", "close"],
+        bindTerminal(request,context) {
+          const panelKey = `${context.sessionId}:${request.resource || "default"}`;
+          let tabId = "";
+          try {tabId=String(JSON.parse(request.resource || "{}").tabId || "");} catch { /* launcher resource */ }
+          tabId ||= panelTabs.get(panelKey) || "";
+          if (!tabId) throw new Error("Terminal tab unavailable");
+          return control.port(tabId,context);
+        },
         async render(request, context) {
           const panelKey = `${context.sessionId}:${request.resource || "default"}`;
           let tabId = "";
@@ -70,7 +79,9 @@ export const activate: PluginModule["activate"] = async (host) => {
           tabId ||= panelTabs.get(panelKey) || "";
           if (!tabId) tabId = (await control.open({}, context, false)).tabId;
           panelTabs.set(panelKey, tabId);
-          const terminal = control.read({ tabId, cursor: 0 }, context);
+          const cursor = panelCursors.get(panelKey) ?? 0;
+          panelCursors.delete(panelKey);
+          const terminal = control.read({ tabId, cursor }, context);
           return {
             title: request.locale.startsWith("zh") ? "终端" : "Terminal",
             data: {
@@ -94,6 +105,8 @@ export const activate: PluginModule["activate"] = async (host) => {
           tabId ||= panelTabs.get(panelKey) || "";
           if (!tabId) throw new Error("Terminal tab unavailable");
           const value = action.value ? JSON.parse(action.value) : {};
+          if (Number.isSafeInteger(value.cursor) && value.cursor >= 0)
+            panelCursors.set(panelKey, value.cursor);
           if (action.id === "refresh") return;
           if (action.id === "write")
             control.writeRaw(tabId, String(value.data || ""), context);

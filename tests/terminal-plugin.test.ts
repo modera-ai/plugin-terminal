@@ -109,6 +109,7 @@ it(
       runtime.add({
         manifest,
         load: async () => ({ activate }),
+    readFrontend: async () => ({ body: new Uint8Array(await readFile(new URL("../dist/ui/terminal-result.js", import.meta.url))), mime: "text/javascript" }),
       });
       await runtime.reconcile(new Set([manifest.id]));
       const context = {

@@ -69,6 +69,14 @@ export class InteractiveCommands {
       inputReady: !!command.write && !command.controller.signal.aborted,
     };
   }
+  /** The UI may render before execute has registered the interactive process. */
+  snapshotIfAvailable(callId: string, context: ToolContext) {
+    this.host.signal.throwIfAborted();
+    const key = this.key(context, callId);
+    if (!this.commands.has(key) && !this.finished.has(key)) return undefined;
+    // Existing commands still require the normal project/workspace ownership checks.
+    return this.snapshot(callId, context);
+  }
   async act(
     callId: string,
     action: string,
