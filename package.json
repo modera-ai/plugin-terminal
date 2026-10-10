@@ -9,15 +9,18 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "modera-plugin-build ."
+    "build": "modera-plugin-build .",
+    "pack": "modera-plugin pack .",
+    "release": "modera-plugin release . --publish"
   },
   "devDependencies": {
-    "@modera/plugin-build": "0.1.0",
-    "@modera/plugin-sdk": "0.1.0",
-    "@types/react-dom": "^19.1.9"
+    "@modera/plugin-build": "file:vendor/modera-plugin-build-0.1.0.tgz",
+    "@modera/plugin-sdk": "file:vendor/modera-plugin-sdk-0.1.0.tgz",
+    "@types/react-dom": "^19.1.9",
+    "@modera/contracts": "file:vendor/modera-contracts-0.1.0.tgz"
   },
   "dependencies": {
-    "@modera/ui": "file:../../../modera-ui",
+    "@modera/ui": "file:vendor/modera-ui-0.1.0.tgz",
     "lucide-react": "^1.17.0",
     "node-pty": "^1.1.0",
     "@xterm/addon-fit": "^0.11.0",
