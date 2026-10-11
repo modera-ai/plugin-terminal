@@ -11,7 +11,7 @@
   "main": "dist/index.cjs",
   "hostRenderers": { "terminal-result": { "entry": "terminal-result.js", "root": "dist/ui" } },
   "permissions": ["process.spawn", "storage.read", "storage.write"],
-  "extensions": ["tool.result", "tool.approval", "settings", "panel"],
+  "extensions": ["panel", "tool.result", "tool.approval", "settings"],
   "configScope": "global",
   "config": {
     "agentEnvironment": {
