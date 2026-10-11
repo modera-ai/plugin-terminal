@@ -20,7 +20,7 @@ export function terminalUi(sessions: TerminalSessions, interactive: InteractiveC
       }
       if (action.id !== "stop") throw new Error("Action unavailable");
       const data = JSON.parse(request.tool?.result ?? "null");
-      sessions.execute({ action: "stop", sessionId: data?.sessionId }, context);
+      sessions.execute({ action: "stop", sessionId: data?.sessionId }, context, "user");
     },
     async render(request, context) {
       const pending = slot === "tool.result" && request.toolCallId && request.tool?.result === undefined;

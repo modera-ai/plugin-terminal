@@ -211,6 +211,7 @@
     },
     {
       "id": "terminal_open",
+      "locales": { "en": { "title": "Open terminal" } },
       "title": "打开交互终端",
       "description": "Open a persistent interactive PTY in the right panel. Returns tabId. cwd defaults to the project root.",
       "requiredPermissions": ["process.spawn"],
@@ -233,6 +234,7 @@
     },
     {
       "id": "terminal_send",
+      "locales": { "en": { "title": "Send terminal input" } },
       "title": "向终端发送输入",
       "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter, arrows, control keys and F1-F12.",
       "requiredPermissions": ["process.spawn"],
@@ -260,6 +262,7 @@
     },
     {
       "id": "terminal_read",
+      "locales": { "en": { "title": "Read terminal" } },
       "title": "读取终端",
       "description": "Read incremental text and raw terminal output from a tab. Reuse nextCursor; waitMs optionally waits for more output first.",
       "requiredPermissions": ["process.spawn"],
@@ -281,6 +284,7 @@
     },
     {
       "id": "terminal_resize",
+      "locales": { "en": { "title": "Resize terminal" } },
       "title": "调整终端大小",
       "description": "Resize the PTY dimensions for a terminal tab.",
       "requiredPermissions": ["process.spawn"],
@@ -303,6 +307,7 @@
     },
     {
       "id": "terminal_wait",
+      "locales": { "en": { "title": "Wait for terminal idle" } },
       "title": "等待终端空闲",
       "description": "Wait until a terminal has no new output for idleMs, then return only text not delivered by an earlier wait.",
       "requiredPermissions": ["process.spawn"],
@@ -328,6 +333,7 @@
     },
     {
       "id": "terminal_close",
+      "locales": { "en": { "title": "Close terminal" } },
       "title": "关闭终端",
       "description": "Close a terminal tab and terminate its PTY.",
       "requiredPermissions": ["process.spawn"],
@@ -345,6 +351,7 @@
     },
     {
       "id": "terminal_focus",
+      "locales": { "en": { "title": "Focus terminal" } },
       "title": "聚焦终端",
       "description": "Bring a persistent terminal tab to the foreground in the right panel.",
       "requiredPermissions": ["process.spawn"],
@@ -363,6 +370,7 @@
     },
     {
       "id": "terminal_list",
+      "locales": { "en": { "title": "List terminals" } },
       "title": "列出终端",
       "description": "List persistent terminal tabs in this conversation with IDs, directories and active state.",
       "requiredPermissions": ["process.spawn"],

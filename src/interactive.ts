@@ -12,6 +12,7 @@ interface Command {
   output: string;
   pid?: number;
   inputCount: number;
+  stoppedByUser?: boolean;
   write?: (text: string) => Promise<void>;
   result?: CommandResult;
   timer?: ReturnType<typeof setTimeout>;
@@ -88,6 +89,7 @@ export class InteractiveCommands {
     if (command.result)
       throw new Error("Interactive command already completed");
     if (action === "stop") {
+      command.stoppedByUser = true;
       command.controller.abort();
       this.changed(command);
       return;
@@ -158,8 +160,10 @@ export class InteractiveCommands {
           this.changed(entry);
         },
       );
-      entry.result = result;
-      return { ...result, description, interactive: true };
+      entry.result = entry.stoppedByUser && result.status === "cancelled"
+        ? { ...result, reason: "user", stoppedBy: "user", message: "The user manually stopped this command. Do not automatically retry it." }
+        : result;
+      return { ...entry.result, description, interactive: true };
     } finally {
       clearTimeout(entry.timer);
       this.commands.delete(key);

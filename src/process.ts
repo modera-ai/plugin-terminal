@@ -4,6 +4,9 @@ import { stripVTControlCharacters } from "node:util";
 import { childEnvironment, spawnCommand } from "./shell";
 
 export interface CommandResult {
+  reason?: "user" | "agent";
+  stoppedBy?: "user" | "agent";
+  message?: string;
   command: string;
   cwd: string;
   shell: string;

@@ -30,6 +30,7 @@ interface Job {
   result?: CommandResult;
   error?: string;
   done: boolean;
+  stoppedBy?: "user" | "agent";
 }
 export class TerminalSessions {
   readonly logs: TerminalLogs;
@@ -112,6 +113,10 @@ export class TerminalSessions {
               undefined,
               Infinity, // Log capacity is not a process execution budget.
             );
+            if (job.stoppedBy && job.result.status === "cancelled") job.result = {
+              ...job.result, reason: job.stoppedBy, stoppedBy: job.stoppedBy,
+              message: job.stoppedBy === "user" ? "The user manually stopped this command. Do not automatically retry it." : "The agent stopped this command.",
+            };
           } catch (error) {
             job.error = String(error);
           } finally {
@@ -166,7 +171,7 @@ export class TerminalSessions {
       context.signal.removeEventListener("abort", abort);
     }
   }
-  execute(raw: unknown, context: ToolContext) {
+  execute(raw: unknown, context: ToolContext, stopSource: "user" | "agent" = "agent") {
     this.host.signal.throwIfAborted();
     const input = raw as {
       action: string;
@@ -187,12 +192,16 @@ export class TerminalSessions {
       command: job.command,
       status: job.error ? "failed" : (job.result?.status ?? "running"),
       exitCode: job.result?.exitCode ?? null,
+      stoppedBy: job.result?.stoppedBy ?? job.stoppedBy,
+      reason: job.result?.reason ?? job.stoppedBy,
+      message: job.result?.message,
     });
     if (input.action === "list")
       return { sessions: [...this.jobs.values()].filter(visible).map(summary) };
     const job = this.jobs.get(input.sessionId ?? "");
     if (!job || !visible(job)) throw new Error("Terminal session unavailable");
     if (input.action === "stop") {
+      if (!job.done && !job.controller.signal.aborted) job.stoppedBy = stopSource;
       job.controller.abort();
       return {
         ...summary(job),
@@ -247,6 +256,9 @@ export class TerminalSessions {
       done: job.done,
       output: job.error ?? job.buffer.slice(-6000),
       exitCode: job.result?.exitCode ?? null,
+      stoppedBy: job.result?.stoppedBy ?? job.stoppedBy,
+      reason: job.result?.reason ?? job.stoppedBy,
+      message: job.result?.message,
     };
   }
 }

@@ -91,9 +91,16 @@ it.each(["stop", "cancel", "timeout"])(
       if (action === "stop")
         await commands.act("c", "stop", undefined, context);
       if (action === "cancel") controller.abort();
-      expect((await execution).status).toBe(
+      const result = await execution;
+      expect(result.status).toBe(
         action === "timeout" ? "timed_out" : "cancelled",
       );
+      expect(result.stoppedBy).toBe(action === "stop" ? "user" : undefined);
+      if (action === "stop") {
+        expect(result.reason).toBe("user");
+        expect(result.message).toContain("Do not automatically retry");
+        expect(commands.snapshot("c", context).stoppedBy).toBe("user");
+      }
     } finally {
       controller.abort();
       await execution;
