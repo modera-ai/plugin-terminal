@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpenIcon as FolderOpen } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import { Button, DialogNotice, Input, Select, Switch, UiProvider } from "@modera/ui";
 import { FieldRow, Form, FormItem, SettingsColumns, SettingsPage, SettingsPanel } from "@modera/ui/settings";
 import "@modera/ui/styles.css";
