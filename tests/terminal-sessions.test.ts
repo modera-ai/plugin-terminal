@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm, realpath, writeFile } from "node:fs/promises";
 import { TerminalSessions } from "../src/sessions";
-import { ProgressGuard } from "../../default-agent/src/run-budget";
+import { ProgressGuard } from "../../plugin-default-agent/src/run-budget";
 import { findShell } from "../src/shell";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

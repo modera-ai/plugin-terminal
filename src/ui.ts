@@ -12,6 +12,7 @@ export function terminalUi(sessions: TerminalSessions, interactive: InteractiveC
     toolNames: ["terminal_execute"],
     requiredPermissions: ["process.spawn"],
     actions: slot === "tool.result" ? ["stop", "input", "log-open", "log-next", "log-close"] : [],
+    readOnlyActions: slot === "tool.result" ? ["log-open", "log-next", "log-close"] : [],
     async act(action, context, request) {
       if (action.id.startsWith("log-")) return logs.act(action.id, request, context);
       if (request.toolCallId && (request.tool?.input as { interactive?: boolean })?.interactive && request.tool?.result === undefined) {

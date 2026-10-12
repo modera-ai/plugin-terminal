@@ -61,6 +61,7 @@ export const activate: PluginModule["activate"] = async (host) => {
           },
         },
         actions: ["refresh", "write", "resize", "close"],
+        readOnlyActions: ["refresh"],
         bindTerminal(request,context) {
           const panelKey = `${context.sessionId}:${request.resource || "default"}`;
           let tabId = "";
