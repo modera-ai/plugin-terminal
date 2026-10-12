@@ -1,6 +1,7 @@
-import { access, realpath, stat } from "node:fs/promises";
+import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
+import { access, realpath, stat } from "@modera/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "@modera/plugin-sdk/workspace-path";
 
 export type AgentEnvironment = "windows-native" | "wsl";
 
@@ -90,6 +91,7 @@ export function spawnCommand(
   cwd: string,
   interactive = false,
 ): { executable: string; args: string[]; cwd?: string } {
+  if (isRemotePath(cwd)) return { executable: "/bin/sh", args: ["-lc", command], cwd };
   if (process.platform === "win32" && isWslShell(shell)) {
     const distribution = shell.slice(4).trim();
     return {
@@ -121,7 +123,7 @@ export async function workingDirectory(
   const delta = relative(root, target);
   if (
     delta === ".." ||
-    delta.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+    (delta.startsWith("../") || delta.startsWith("..\\")) ||
     isAbsolute(delta)
   )
     throw new Error("Working directory must be within the project");

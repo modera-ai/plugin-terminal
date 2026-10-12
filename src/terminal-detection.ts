@@ -1,7 +1,7 @@
-import { access } from "node:fs/promises";
+import { access } from "@modera/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { execFile } from "node:child_process";
+import { basename, dirname, join } from "@modera/plugin-sdk/workspace-path";
+import { execFile } from "@modera/plugin-sdk/workspace-process";
 import { promisify } from "node:util";
 
 const execute = promisify(execFile);

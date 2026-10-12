@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isUtf8 } from "node:buffer";
-import { mkdir, readdir, open, lstat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, open, lstat } from "@modera/plugin-sdk/workspace-fs";
+import { join } from "@modera/plugin-sdk/workspace-path";
 import type { ToolContext } from "@modera/plugin-sdk";
 
 const limit = 4 * 1024 * 1024;

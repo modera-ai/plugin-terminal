@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { join } from "node:path";
+import { spawn, isRemoteProcess, type ChildProcess } from "@modera/plugin-sdk/workspace-process";
+import { join } from "@modera/plugin-sdk/workspace-path";
 import { stripVTControlCharacters } from "node:util";
 import { childEnvironment, spawnCommand } from "./shell";
 
@@ -21,6 +21,7 @@ export interface CommandResult {
 
 /** Best-effort tree cleanup. Detached grandchildren/WSL are not an OS sandbox. */
 function stopTree(child: ChildProcess): void {
+  if (isRemoteProcess(child)) { child.kill(); return; }
   if (!child.pid) return;
   if (process.platform === "win32") {
     const killer = spawn(

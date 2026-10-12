@@ -1,3 +1,4 @@
+import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
 import manifest from "../plugin.json";
 import { declaredTool, declaredTools } from "@modera/plugin-sdk";
 import type {
@@ -137,7 +138,7 @@ export const activate: PluginModule["activate"] = async (host) => {
     const configuration = terminalConfiguration(
       (await host.config?.read(context.projectId))?.values,
     );
-    const shell = await findAgentShell(configuration);
+    const shell = isRemotePath(context.workspacePath) ? "/bin/sh" : await findAgentShell(configuration);
     if (!shell || !context.workspacePath)
       throw new Error("Terminal unavailable");
     if (!input.command?.trim() || input.command.includes("\0"))

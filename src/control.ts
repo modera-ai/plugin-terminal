@@ -1,6 +1,8 @@
-import { access } from "node:fs/promises";
+import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
+import { remoteTransport, type WorkspacePty } from "@modera/plugin-sdk/workspace-transport";
+import { access } from "@modera/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
-import { basename } from "node:path";
+import { basename } from "@modera/plugin-sdk/workspace-path";
 import { randomUUID } from "node:crypto";
 import * as pty from "node-pty";
 import type { PluginContext, ToolContext, PluginTerminalPort, TerminalOutputEvent, TerminalExitEvent } from "@modera/plugin-sdk";
@@ -50,7 +52,7 @@ interface ControlledTerminal {
   id: string;
   ownerSession: string;
   projectId: string | undefined;
-  process: pty.IPty;
+  process: pty.IPty | WorkspacePty;
   title: string;
   shell: string;
   cwd: string;
@@ -120,6 +122,7 @@ export class TerminalControl {
     };
   }
   private async shell(input: OpenTerminalInput, context: ToolContext) {
+    if (isRemotePath(context.workspacePath)) return { shell: "/bin/sh", config: terminalConfiguration(undefined) };
     const config = terminalConfiguration(
       (await this.host.config?.read(context.projectId))?.values,
     );
@@ -165,7 +168,7 @@ export class TerminalControl {
         (entry): entry is [string, string] => typeof entry[1] === "string",
       ),
     );
-    const processHandle = pty.spawn(shell, args, {
+    const processHandle = isRemotePath(cwd) ? await remoteTransport().pty(cwd, cols, rows) : pty.spawn(shell, args, {
       name: "xterm-256color",
       cols,
       rows,
