@@ -7,7 +7,7 @@
   "activationScope": "scoped",
   "id": "modera.terminal",
   "name": "Terminal",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "执行构建、测试与 Git 命令，支持审批、取消和超时。",
   "author": "Modera",
   "category": "development",
