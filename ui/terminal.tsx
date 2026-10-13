@@ -6,12 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { frontend, usePluginSnapshot } from "@modera/plugin-sdk/react";
 import type { TerminalOutputEvent, TerminalExitEvent } from "@modera/plugin-sdk";
+import { operationErrorDetail } from "@modera/contracts";
 
 function TerminalPanel() {
   const element = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const [error, setError] = useState("");
   const { snapshot } = usePluginSnapshot();
+  const startupError = (snapshot?.view.data as { startupError?: string } | undefined)?.startupError;
   const values =
     (snapshot?.view.data as { config?: Record<string, unknown> } | undefined)
       ?.config ?? {};
@@ -83,7 +85,7 @@ function TerminalPanel() {
     const stopOutput = api.onOutput(apply);
     const stopExit = api.onExit(exit);
     // Subscribe before replay to avoid losing output while attach is resolving.
-    void api.attach().then(info => {
+    void (startupError ? Promise.reject(new Error(startupError)) : api.attach()).then(info => {
       if (stopped) {void api.close(info.id).catch(()=>{});return;}
       id = info.id;
       terminal.write(info.raw);
@@ -92,7 +94,7 @@ function TerminalPanel() {
       if (pendingExit) exit(pendingExit);
       if (!info.alive) exit({id,exitCode:info.exitCode ?? -1});
       if (info.alive) void api.resize(id,terminal.cols,terminal.rows).catch(e=>setError(String(e)));
-    }).catch(e => {if (!stopped) {buffered.length=0;setError(String(e));}});
+    }).catch(e => {if (!stopped) {buffered.length=0;setError(`[Terminal] failed to start: ${operationErrorDetail(e)}`);}});
     const input = terminal.onData((data) => {
       if (id && !exited) void api.write(id,data).catch(e=>{if(!stopped)setError(String(e));});
     });
@@ -139,7 +141,10 @@ function TerminalPanel() {
       terminal.dispose();
       if (terminalRef.current === terminal) terminalRef.current = null;
     };
-  }, [Boolean(snapshot)]);
+  }, [Boolean(snapshot), startupError]);
+  useEffect(() => {
+    if (error) terminalRef.current?.writeln(`\r\n\x1b[31m${operationErrorDetail(error).replace(/\n/g, "\r\n")}\x1b[0m`);
+  }, [error]);
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
@@ -160,7 +165,7 @@ function TerminalPanel() {
   return (
     <main className="terminal-shell">
       <div ref={element} className="terminal-host" />
-      {error && <div className="terminal-error">{error}</div>}
+      {error && <button className="terminal-retry" onClick={() => window.location.reload()}>{snapshot?.locale.startsWith("zh") ? "重试" : "Retry"}</button>}
     </main>
   );
 }

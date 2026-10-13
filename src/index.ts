@@ -1,4 +1,5 @@
 import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
+import { operationErrorDetail } from "@modera/contracts";
 import manifest from "../plugin.json";
 import { declaredTool, declaredTools } from "@modera/plugin-sdk";
 import type {
@@ -71,6 +72,7 @@ export const activate: PluginModule["activate"] = async (host) => {
           return control.port(tabId,context);
         },
         async render(request, context) {
+          try {
           const panelKey = `${context.sessionId}:${request.resource || "default"}`;
           let tabId = "";
           try {
@@ -95,6 +97,13 @@ export const activate: PluginModule["activate"] = async (host) => {
             },
             children: [],
           };
+          } catch (error) {
+            return {
+              title: request.locale.startsWith("zh") ? "终端" : "Terminal",
+              data: { startupError: operationErrorDetail(error), cwd: context.workspacePath, config: {} },
+              children: [],
+            };
+          }
         },
         async act(action, context, request) {
           const panelKey = `${context.sessionId}:${request.resource || "default"}`;
@@ -105,6 +114,7 @@ export const activate: PluginModule["activate"] = async (host) => {
             /* launcher resource */
           }
           tabId ||= panelTabs.get(panelKey) || "";
+          if (action.id === "refresh" && !tabId) return;
           if (!tabId) throw new Error("Terminal tab unavailable");
           const value = action.value ? JSON.parse(action.value) : {};
           if (Number.isSafeInteger(value.cursor) && value.cursor >= 0)

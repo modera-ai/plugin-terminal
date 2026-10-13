@@ -14,15 +14,17 @@ body,
   padding: 8px;
   box-sizing: border-box;
 }
-.terminal-error {
+.terminal-retry {
   position: absolute;
-  left: 12px;
   right: 12px;
   bottom: 12px;
   padding: 8px 10px;
-  border-radius: 6px;
-  background: #5f1d24;
-  color: #fff;
+  border-radius: 7px;
+  border: 1px solid var(--mu-line, #727986);
+  background: var(--mu-page, #101318);
+  color: var(--mu-ink, #e6e9ef);
+  min-height: 32px;
+  cursor: pointer;
   font: 12px system-ui;
 }
 .xterm {
