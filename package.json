@@ -1,6 +1,6 @@
 {
   "name": "@modera-plugin/terminal",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "type": "module",
   "description": "Run build, test and Git commands with approval, cancellation and timeouts.",
   "files": [

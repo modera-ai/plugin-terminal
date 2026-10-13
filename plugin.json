@@ -1,40 +1,72 @@
 {
   "apiVersion": 1,
-  "workspaceTargets": ["local", "ssh"],
+  "workspaceTargets": [
+    "local",
+    "ssh"
+  ],
   "activationScope": "scoped",
   "id": "modera.terminal",
   "name": "Terminal",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "执行构建、测试与 Git 命令，支持审批、取消和超时。",
   "author": "Modera",
   "category": "development",
   "icon": "terminal",
   "main": "dist/index.cjs",
-  "hostRenderers": { "terminal-result": { "entry": "terminal-result.js", "root": "dist/ui" } },
-  "permissions": ["process.spawn", "storage.read", "storage.write"],
-  "extensions": ["panel", "tool.result", "tool.approval", "settings"],
+  "hostRenderers": {
+    "terminal-result": {
+      "entry": "terminal-result.js",
+      "root": "dist/ui"
+    }
+  },
+  "permissions": [
+    "process.spawn",
+    "storage.read",
+    "storage.write"
+  ],
+  "extensions": [
+    "panel",
+    "tool.result",
+    "tool.approval",
+    "settings"
+  ],
   "configScope": "global",
   "config": {
     "agentEnvironment": {
       "type": "enum",
       "title": "Agent environment",
       "default": "windows-native",
-      "options": ["windows-native", "wsl"],
-      "locales": { "zh-CN": { "title": "智能体环境" } }
+      "options": [
+        "windows-native",
+        "wsl"
+      ],
+      "locales": {
+        "zh-CN": {
+          "title": "智能体环境"
+        }
+      }
     },
     "wslDistribution": {
       "type": "string",
       "title": "WSL distribution",
       "default": "",
       "maxLength": 100,
-      "locales": { "zh-CN": { "title": "WSL 发行版" } }
+      "locales": {
+        "zh-CN": {
+          "title": "WSL 发行版"
+        }
+      }
     },
     "integratedShell": {
       "type": "string",
       "title": "Integrated terminal shell",
       "default": "auto",
       "maxLength": 1000,
-      "locales": { "zh-CN": { "title": "集成终端 Shell" } }
+      "locales": {
+        "zh-CN": {
+          "title": "集成终端 Shell"
+        }
+      }
     },
     "fontFamily": {
       "type": "string",
@@ -73,11 +105,21 @@
     "waitForReady": true,
     "title": "Terminal settings",
     "frontend": "settings",
-    "locales": { "zh-CN": { "title": "终端设置" } }
+    "locales": {
+      "zh-CN": {
+        "title": "终端设置"
+      }
+    }
   },
   "frontends": {
-    "settings": { "root": "dist/ui", "entry": "settings.html" },
-    "terminal": { "root": "dist/ui", "entry": "terminal.html" }
+    "settings": {
+      "root": "dist/ui",
+      "entry": "settings.html"
+    },
+    "terminal": {
+      "root": "dist/ui",
+      "entry": "terminal.html"
+    }
   },
   "agentGuidance": "Use the terminal for builds, tests and commands that genuinely require a shell. Use workspace tools for ordinary file edits; use managed background sessions for servers and watchers.",
   "tools": [
@@ -132,7 +174,10 @@
             "type": "integer"
           }
         },
-        "required": ["command", "description"],
+        "required": [
+          "command",
+          "description"
+        ],
         "type": "object"
       },
       "presentation": {
@@ -152,10 +197,15 @@
             "path": "durationMs"
           }
         ],
-        "targets": ["description", "command"],
+        "targets": [
+          "description",
+          "command"
+        ],
         "tone": "slate"
       },
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "title": "执行终端命令"
     },
     {
@@ -173,7 +223,13 @@
         "additionalProperties": false,
         "properties": {
           "action": {
-            "enum": ["list", "read", "stop", "logs", "read_log"]
+            "enum": [
+              "list",
+              "read",
+              "stop",
+              "logs",
+              "read_log"
+            ]
           },
           "cursor": {
             "minimum": 0,
@@ -184,7 +240,9 @@
             "type": "string"
           }
         },
-        "required": ["action"],
+        "required": [
+          "action"
+        ],
         "type": "object"
       },
       "presentation": {
@@ -204,177 +262,319 @@
             "path": "stdout"
           }
         ],
-        "targets": ["action", "sessionId"],
+        "targets": [
+          "action",
+          "sessionId"
+        ],
         "tone": "slate"
       },
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "title": "管理终端任务"
     },
     {
       "id": "terminal_open",
-      "locales": { "en": { "title": "Open terminal" } },
+      "locales": {
+        "en": {
+          "title": "Open terminal"
+        }
+      },
       "title": "打开交互终端",
       "description": "Open a persistent interactive PTY in the right panel. Returns tabId. cwd defaults to the project root.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "cwd": { "type": "string", "minLength": 1, "maxLength": 1000 },
-          "shellPath": { "type": "string", "minLength": 1, "maxLength": 1000 },
-          "cols": { "type": "integer", "minimum": 2, "maximum": 500 },
-          "rows": { "type": "integer", "minimum": 1, "maximum": 300 }
+          "cwd": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "shellPath": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "cols": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 500
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          }
         }
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["cwd"]
+        "targets": [
+          "cwd"
+        ]
       }
     },
     {
       "id": "terminal_send",
-      "locales": { "en": { "title": "Send terminal input" } },
+      "locales": {
+        "en": {
+          "title": "Send terminal input"
+        }
+      },
       "title": "向终端发送输入",
       "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter, arrows, control keys and F1-F12.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "tabId": { "type": "string" },
-          "input": { "type": "string", "maxLength": 65536 },
+          "tabId": {
+            "type": "string"
+          },
+          "input": {
+            "type": "string",
+            "maxLength": 65536
+          },
           "keys": {
             "type": "array",
             "minItems": 1,
             "maxItems": 64,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-        "oneOf": [{ "required": ["input"] }, { "required": ["keys"] }]
+        "oneOf": [
+          {
+            "required": [
+              "input"
+            ]
+          },
+          {
+            "required": [
+              "keys"
+            ]
+          }
+        ]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["tabId", "input"]
+        "targets": [
+          "tabId",
+          "input"
+        ]
       }
     },
     {
       "id": "terminal_read",
-      "locales": { "en": { "title": "Read terminal" } },
+      "locales": {
+        "en": {
+          "title": "Read terminal"
+        }
+      },
       "title": "读取终端",
       "description": "Read incremental text and raw terminal output from a tab. Reuse nextCursor; waitMs optionally waits for more output first.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "tabId": { "type": "string" },
-          "cursor": { "type": "integer", "minimum": 0 },
-          "waitMs": { "type": "integer", "minimum": 0, "maximum": 60000 }
+          "tabId": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "waitMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000
+          }
         }
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["tabId"]
+        "targets": [
+          "tabId"
+        ]
       }
     },
     {
       "id": "terminal_resize",
-      "locales": { "en": { "title": "Resize terminal" } },
+      "locales": {
+        "en": {
+          "title": "Resize terminal"
+        }
+      },
       "title": "调整终端大小",
       "description": "Resize the PTY dimensions for a terminal tab.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "tabId": { "type": "string" },
-          "cols": { "type": "integer", "minimum": 2, "maximum": 500 },
-          "rows": { "type": "integer", "minimum": 1, "maximum": 300 }
+          "tabId": {
+            "type": "string"
+          },
+          "cols": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 500
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          }
         },
-        "required": ["cols", "rows"]
+        "required": [
+          "cols",
+          "rows"
+        ]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["tabId"]
+        "targets": [
+          "tabId"
+        ]
       }
     },
     {
       "id": "terminal_wait",
-      "locales": { "en": { "title": "Wait for terminal idle" } },
+      "locales": {
+        "en": {
+          "title": "Wait for terminal idle"
+        }
+      },
       "title": "等待终端空闲",
       "description": "Wait until a terminal has no new output for idleMs, then return only text not delivered by an earlier wait.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "tabId": { "type": "string" },
+          "tabId": {
+            "type": "string"
+          },
           "timeoutMs": {
             "type": "integer",
             "minimum": 1000,
             "maximum": 1800000
           },
-          "idleMs": { "type": "integer", "minimum": 100, "maximum": 5000 }
+          "idleMs": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 5000
+          }
         }
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["tabId"]
+        "targets": [
+          "tabId"
+        ]
       }
     },
     {
       "id": "terminal_close",
-      "locales": { "en": { "title": "Close terminal" } },
+      "locales": {
+        "en": {
+          "title": "Close terminal"
+        }
+      },
       "title": "关闭终端",
       "description": "Close a terminal tab and terminate its PTY.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
-        "properties": { "tabId": { "type": "string" } }
+        "properties": {
+          "tabId": {
+            "type": "string"
+          }
+        }
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["tabId"]
+        "targets": [
+          "tabId"
+        ]
       }
     },
     {
       "id": "terminal_focus",
-      "locales": { "en": { "title": "Focus terminal" } },
+      "locales": {
+        "en": {
+          "title": "Focus terminal"
+        }
+      },
       "title": "聚焦终端",
       "description": "Bring a persistent terminal tab to the foreground in the right panel.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
-        "properties": { "tabId": { "type": "string", "minLength": 1 } },
-        "required": ["tabId"]
+        "properties": {
+          "tabId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "tabId"
+        ]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": ["tabId"]
+        "targets": [
+          "tabId"
+        ]
       }
     },
     {
       "id": "terminal_list",
-      "locales": { "en": { "title": "List terminals" } },
+      "locales": {
+        "en": {
+          "title": "List terminals"
+        }
+      },
       "title": "列出终端",
       "description": "List persistent terminal tabs in this conversation with IDs, directories and active state.",
-      "requiredPermissions": ["process.spawn"],
+      "requiredPermissions": [
+        "process.spawn"
+      ],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
