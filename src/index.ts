@@ -46,7 +46,7 @@ export const activate: PluginModule["activate"] = async (host) => {
     registerTerminalPresentation(pal, sessions, interactive);
   }).activate(host);
   const plans = new Map<string, Plan>();
-  let running = 0;
+  let reservations = 0;
   host.signal.addEventListener("abort", () => plans.clear(), { once: true });
   const prepare = async (raw: unknown, context: ToolContext) => {
     const input = raw as {
@@ -142,9 +142,10 @@ export const activate: PluginModule["activate"] = async (host) => {
             plan.root !== context.workspacePath
           )
             throw new Error("Invalid terminal approval");
-          if (running + sessions.active >= 2)
+          if (reservations + sessions.active >= 2)
             throw new Error("Terminal concurrency limit reached");
-          running++;
+          reservations++;
+          let reserved = true;
           try {
             if ((await workingDirectory(plan.root, plan.cwd)) !== plan.cwd)
               throw new Error("Working directory changed since approval");
@@ -158,6 +159,10 @@ export const activate: PluginModule["activate"] = async (host) => {
                 plan.timeout,
                 context,
               );
+            // start registers the managed job before its first await. Transfer
+            // the startup reservation without counting that same job twice.
+            reservations--;
+            reserved = false;
             const started = await sessions.start(
               plan.shell,
               plan.command,
@@ -175,7 +180,7 @@ export const activate: PluginModule["activate"] = async (host) => {
               )),
             };
           } finally {
-            running--;
+            if (reserved) reservations--;
           }
         },
       },

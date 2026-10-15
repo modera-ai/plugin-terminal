@@ -107,6 +107,44 @@ test("PAL command declarations match registration; panel is conversation-bound w
     assert.equal(f.panel.act, undefined);
     assert.equal(f.contributions.commands.length, 11);
   }));
+
+test("wait delivers consecutive output after buffer rotation without repeats", () =>
+  fixture(async (f) => {
+    const tab = await f.run("open");
+    f.ptys[0].emit("x".repeat(1_000_000));
+    assert.equal(
+      (await f.run("wait", { tabId: tab.tabId, idleMs: 100 })).text.length,
+      1_000_000,
+    );
+    for (let i = 0; i < 3; i++) {
+      f.ptys[0].emit(`\x1b[31m界🌏 round ${i}\x1b[0m\r\n`);
+      const next = await f.run("wait", { tabId: tab.tabId, idleMs: 100 });
+      assert.equal(next.text, `界🌏 round ${i}\r\n`);
+      assert.equal(next.lostOutput, false);
+    }
+    assert.equal(
+      (await f.run("wait", { tabId: tab.tabId, idleMs: 100 })).text,
+      "",
+    );
+  }));
+
+test("wait reports evicted output then resumes its absolute cursor", () =>
+  fixture(async (f) => {
+    const tab = await f.run("open");
+    f.ptys[0].emit("x".repeat(1_000_020));
+    const first = await f.run("wait", { tabId: tab.tabId, idleMs: 100 });
+    assert.equal(first.lostOutput, true);
+    assert.equal(first.text.length, 1_000_000);
+    f.ptys[0].emit("y".repeat(1_000_001));
+    assert.equal(
+      (await f.run("wait", { tabId: tab.tabId, idleMs: 100 })).lostOutput,
+      true,
+    );
+    f.ptys[0].emit("AFTER_EVICTION");
+    const next = await f.run("wait", { tabId: tab.tabId, idleMs: 100 });
+    assert.equal(next.text, "AFTER_EVICTION");
+    assert.equal(next.lostOutput, false);
+  }));
 test("navigation keeps the process; new project and changed directory cannot control it", () =>
   fixture(async (f) => {
     const navigation = new AbortController(),

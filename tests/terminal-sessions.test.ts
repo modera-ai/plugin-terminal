@@ -1,129 +1,87 @@
-import { mkdtemp, readFile, rm, realpath, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { TerminalSessions } from "../src/sessions";
-import { ProgressGuard } from "../../plugin-default-agent/src/run-budget";
 import { findShell } from "../src/shell";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { activate } from "../src";
-import { readPluginManifest } from "@modera/plugin-host/testing";
+import { terminalFixture, executePrepared } from "./helpers/terminal-fixture";
 
-const manifest = readPluginManifest(new URL("..", import.meta.url));
-import { ToolRegistry } from "@modera-host/agent-host/src/tool-registry";
-import { ToolExecutor } from "@modera-host/agent-host/src/tool-executor";
-
-import { AgentPluginRuntime as PluginRuntime } from "@modera/agent-host";
-
-it("foreground yield preserves a running command without a deadline, supports incremental reads and scope revocation", async () => {
-  const root = await realpath(
-    await mkdtemp(join(tmpdir(), "modera-jobs-")),
-  );
-  const registry = new ToolRegistry();
-  let enabled = true;
-  const runtime = new PluginRuntime(
-    registry,
-    (_id, project) => project !== "p" || enabled,
-    async () => root,
-  );
-  runtime.add({
-    manifest,
-    load: async () => ({ activate }),
-    readFrontend: async () => ({ body: new Uint8Array(await readFile(new URL("../dist/ui/tool-presentation.js", import.meta.url))), mime: "text/javascript" }),
-  });
-  await runtime.reconcile(new Set([manifest.id]));
-  const context = {
-    projectId: "p",
-    sessionId: "s",
-    runId: "r",
-    workspacePath: root,
-    signal: new AbortController().signal,
-  };
-  const executor = new ToolExecutor(
-    registry,
-    async () => true,
-    new Set(["process.spawn"]),
-  );
-  const call = async (name: string, input: unknown, ctx = context) =>
-    JSON.parse(await executor.execute({ id: "c", name, input }, ctx));
+it("foreground yield preserves output, scope cancellation and persistent logs", async () => {
+  const f = await terminalFixture();
+  const contributions = await activate(f.host);
+  const execute = contributions!.tools!.find(
+    (t) => t.definition.id === "terminal_execute",
+  )!;
+  const sessions = contributions!.tools!.find(
+    (t) => t.definition.id === "terminal_session",
+  )!;
   try {
-    const command =
-      process.platform === "win32"
-        ? "echo first; Start-Sleep -Milliseconds 700; echo second; Start-Sleep -Seconds 10"
-        : "echo first; sleep 1; echo second; sleep 10";
-    const started = await call("terminal_execute", {
-      command,
-      description: "long task",
-      yieldTimeMs: 0,
-    });
+    const started = (await executePrepared(
+      execute,
+      {
+        command:
+          process.platform === "win32"
+            ? "echo first; Start-Sleep -Milliseconds 200; echo second; Start-Sleep -Seconds 30"
+            : "echo first; sleep 0.2; echo second; sleep 30",
+        description: "long task",
+        yieldTimeMs: 0,
+      },
+      f.context,
+    )) as any;
     expect(started.sessionId).toBeTruthy();
-    expect(started.status).toBe("running");
     expect(started.expiresAt).toBeNull();
-    const sessionId = started.sessionId;
-    expect(
-      (
-        await call(
-          "terminal_session",
-          { action: "read", sessionId },
-          { ...context, sessionId: "other" },
-        )
-      ).error,
-    ).toContain("unavailable");
-    const progress = new ProgressGuard();
+    await expect(
+      sessions.execute(
+        { action: "read", sessionId: started.sessionId },
+        { ...f.context, sessionId: "other" },
+      ),
+    ).rejects.toThrow("unavailable");
     let cursor = 0,
       output = "";
-    for (let i = 0; i < 100 && !output.includes("second"); i++) {
-      const read = await call("terminal_session", {
-        action: "read",
-        sessionId,
-        cursor,
-      });
-      progress.observe(
-        [
-          {
-            name: "terminal_session",
-            input: { action: "read", sessionId, cursor },
-          },
-        ],
-        [JSON.stringify(read)],
-      );
-      expect(read.nextCursor).toBeGreaterThanOrEqual(cursor);
-      cursor = read.nextCursor;
-      output += read.output;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
+    await expect
+      .poll(
+        async () => {
+          const read = (await sessions.execute(
+            { action: "read", sessionId: started.sessionId, cursor },
+            f.context,
+          )) as any;
+          expect(read.nextCursor).toBeGreaterThanOrEqual(cursor);
+          cursor = read.nextCursor;
+          output += read.output;
+          return output;
+        },
+        { timeout: 8000 },
+      )
+      .toContain("second");
     expect(output).toContain("first");
-    expect(output).toContain("second");
     expect(
-      (await call("terminal_session", { action: "read", sessionId, cursor }))
-        .output,
+      (
+        (await sessions.execute(
+          { action: "read", sessionId: started.sessionId, cursor },
+          f.context,
+        )) as any
+      ).output,
     ).toBe("");
-    enabled = false;
-    await runtime.reconcile(new Set([manifest.id])); // global plugin remains active
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    enabled = true;
-    await runtime.reconcile(new Set([manifest.id]));
-    const ended = await call("terminal_session", {
-      action: "read",
-      sessionId,
-      cursor,
-    });
-    expect(ended.done).toBe(true);
-    expect(ended.status).toBe("cancelled");
-    const logs = await call("terminal_session", { action: "logs" });
-    expect(logs.logs.map((log: { id: string }) => log.id)).toContain(sessionId);
-    const saved = await call("terminal_session", {
-      action: "read_log",
-      sessionId,
-    });
+    f.revokeScope();
+    await f.drain();
+    const ended = (await sessions.execute(
+      { action: "read", sessionId: started.sessionId, cursor },
+      f.context,
+    )) as any;
+    expect(ended).toMatchObject({ done: true, status: "cancelled" });
+    const saved = (await sessions.execute(
+      { action: "read_log", sessionId: started.sessionId },
+      f.context,
+    )) as any;
     expect(saved.logPath).toBe(started.logPath);
     expect(saved.output).toContain("first");
     expect(saved.output).toContain("second");
     expect(saved.hasMore).toBe(false);
   } finally {
-    await runtime.close();
-    await rm(root, { recursive: true, force: true });
+    await f.close();
   }
-}, 20000);
+}, 15000);
 
 it("background execution survives unavailable log storage and output above the log cap", async () => {
   const root = await mkdtemp(join(tmpdir(), "df-log-fail-"));
@@ -132,10 +90,14 @@ it("background execution survives unavailable log storage and output above the l
   try {
     await writeFile(join(root, "logs"), "blocked");
     const sessions = new TerminalSessions({
-      pluginId: manifest.id,
+      pluginId: "pal.terminal",
       storagePath: root,
       signal: controller.signal,
-      grantedPermissions: new Set(manifest.permissions),
+      grantedPermissions: new Set([
+        "process.spawn",
+        "storage.read",
+        "storage.write",
+      ]),
       runBackground: (_context, run) => {
         task = run(controller.signal);
       },

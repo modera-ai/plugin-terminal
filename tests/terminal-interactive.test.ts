@@ -99,7 +99,9 @@ it.each(["stop", "cancel", "timeout"])(
       if (action === "stop") {
         expect(result.reason).toBe("user");
         expect(result.message).toContain("Do not automatically retry");
-        expect(commands.snapshot("c", context).stoppedBy).toBe("user");
+        expect(commands.snapshot("c", context)).toMatchObject({
+          stoppedBy: "user",
+        });
       }
     } finally {
       controller.abort();

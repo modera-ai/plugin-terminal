@@ -132,8 +132,8 @@ export class TerminalSessions {
         },
       );
     } catch (error) {
-      await job.log?.close();
       this.jobs.delete(job.id);
+      await job.log?.close();
       throw error;
     }
     return {

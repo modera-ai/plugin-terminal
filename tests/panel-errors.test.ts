@@ -13,7 +13,7 @@ it("returns a terminal view on PTY startup failure and permits retry before a ta
     .mockRejectedValue(new Error("Cannot create process, error code: 267"));
   try {
     const contributions = await activate(host as never);
-    const ui = contributions.ui!.find(
+    const ui = contributions!.ui!.find(
       (item) => item.id === "pal.terminal.panel",
     )!;
     const context = {

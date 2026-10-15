@@ -8,12 +8,7 @@
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
-  "include": [
-    "src",
-    "ui"
-  ]
+  "include": ["src", "ui", "tests", "vitest.config.ts"]
 }

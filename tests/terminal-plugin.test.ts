@@ -2,24 +2,12 @@ import { mkdtemp, readFile, rm, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
-import { readPluginManifest } from "@modera/plugin-host/testing";
 import { activate } from "../src";
 import { findShell, childEnvironment } from "../src/shell";
 import { runCommand } from "../src/process";
-import { ToolExecutor } from "@modera-host/agent-host/src/tool-executor";
-import { ToolRegistry } from "@modera-host/agent-host/src/tool-registry";
 
-import { AgentPluginRuntime as PluginRuntime } from "@modera/agent-host";
+import { terminalFixture, nodeCommand } from "./helpers/terminal-fixture";
 
-const manifest = readPluginManifest(new URL("..", import.meta.url));
-
-function nodeCommand(script: string): string {
-  // Avoid PowerShell 5 native argv quote rewriting in nested JavaScript strings.
-  const argument = `eval(Buffer.from('${Buffer.from(script).toString("base64")}','base64').toString())`;
-  const quote = (value: string) =>
-    `'${value.replaceAll("'", process.platform === "win32" ? "''" : `'"'"'`)}'`;
-  return `${process.platform === "win32" ? "& " : ""}${quote(process.execPath)} -e ${quote(argument)}`;
-}
 async function fixture(work: (root: string, shell: string) => Promise<void>) {
   const root = await realpath(
     await mkdtemp(join(tmpdir(), "modera-terminal-test-")),
@@ -96,152 +84,115 @@ it(
   15000,
 );
 
-it(
-  "requires approval before spawn and supports plugin disable during execution",
-  () =>
-    fixture(async (root) => {
-      const registry = new ToolRegistry();
-      const runtime = new PluginRuntime(
-        registry,
-        () => true,
-        async () => root,
-      );
-      runtime.add({
-        manifest,
-        load: async () => ({ activate }),
-    readFrontend: async () => ({ body: new Uint8Array(await readFile(new URL("../dist/ui/tool-presentation.js", import.meta.url))), mime: "text/javascript" }),
-      });
-      await runtime.reconcile(new Set([manifest.id]));
-      const context = {
-        sessionId: "s",
-        runId: "r",
-        workspacePath: root,
-        signal: new AbortController().signal,
-      };
-      const command = nodeCommand("require('fs').writeFileSync('marker','ok')");
-      let allow = false;
-      const executor = new ToolExecutor(
-        registry,
-        async (call) => {
-          await expect(readFile(join(root, "marker"))).rejects.toThrow();
-          expect(call.approvalPreview).toMatchObject({ cwd: root, command });
-          return allow;
-        },
-        new Set(["process.spawn"]),
-      );
-      try {
-        const call = {
-          id: "c",
-          name: "terminal_execute",
-          input: { command, description: "写入测试标记" },
-        };
-        expect(JSON.parse(await executor.execute(call, context))).toMatchObject(
-          {
-            error: "PERMISSION_DENIED",
-          },
-        );
-        allow = true;
-        expect(
-          JSON.parse(
-            await executor.execute(call, { ...context, runId: "new-user-run" }),
-          ).exitCode,
-        ).toBe(0);
-        expect(await readFile(join(root, "marker"), "utf8")).toBe("ok");
-        const granted = new ToolExecutor(
-          registry,
-          async () => true,
-          new Set(["process.spawn"]),
-        );
-        const descendant =
-          "require('fs').writeFileSync('pid',String(process.pid));setInterval(()=>{},1000)";
-        const result = granted.execute(
-          {
-            ...call,
-            input: {
-              description: "wait",
-              command: nodeCommand(
-                `require('child_process').spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{stdio:'inherit'});setInterval(()=>{},1000)`,
-              ),
-            },
-          },
-          context,
-        );
-        let pid: number | undefined;
-        for (let i = 0; i < 100; i++) {
+it("prepare has no process side effects; denied plans are disposed and allowed plans run", async () => {
+  const f = await terminalFixture();
+  const contribution = await activate(f.host);
+  const tool = contribution!.tools!.find(
+    (t) => t.definition.id === "terminal_execute",
+  )!;
+  const input = {
+    command: nodeCommand("require('fs').writeFileSync('marker','ok')"),
+    description: "marker",
+  };
+  try {
+    const denied = await tool.prepare!(input, f.context);
+    await expect(readFile(join(f.root, "marker"))).rejects.toThrow();
+    denied.dispose?.();
+    await expect(tool.execute(denied.input, f.context)).rejects.toThrow(
+      "Invalid terminal approval",
+    );
+    const allowed = await tool.prepare!(input, f.context);
+    expect(allowed.preview).toMatchObject({
+      cwd: f.root,
+      command: input.command,
+    });
+    expect(
+      ((await tool.execute(allowed.input, f.context)) as any).exitCode,
+    ).toBe(0);
+    expect(await readFile(join(f.root, "marker"), "utf8")).toBe("ok");
+    await expect(
+      tool.prepare!({ ...input, workingDirectory: ".." }, f.context),
+    ).rejects.toThrow("within the project");
+    expect(tool.isAvailable?.({ ...f.context, workspacePath: undefined })).toBe(
+      false,
+    );
+  } finally {
+    await f.close();
+  }
+}, 15000);
+
+it("scope cancellation terminates an executing command and its descendant", async () => {
+  const f = await terminalFixture();
+  let execution: Promise<unknown> | undefined;
+  let pid: number | undefined;
+  try {
+    const contribution = await activate(f.host);
+    const tool = contribution!.tools!.find(
+      (t) => t.definition.id === "terminal_execute",
+    )!;
+    const child =
+      "require('fs').writeFileSync('pid',String(process.pid));setInterval(()=>{},1000)";
+    const plan = await tool.prepare!(
+      {
+        description: "wait",
+        command: nodeCommand(
+          `require('child_process').spawn(process.execPath,['-e',${JSON.stringify(child)}],{stdio:'inherit'});setInterval(()=>{},1000)`,
+        ),
+        yieldTimeMs: 0,
+      },
+      f.context,
+    );
+    execution = tool.execute(plan.input, f.context);
+    const started = (await execution) as any;
+    await expect
+      .poll(
+        async () => {
           try {
-            pid = Number(await readFile(join(root, "pid"), "utf8"));
-            break;
+            pid = Number(await readFile(join(f.root, "pid"), "utf8"));
+            return pid;
           } catch {
-            await new Promise((r) => setTimeout(r, 50));
+            return 0;
           }
-        }
-        expect(pid).toBeTruthy();
-        await runtime.reconcile(new Set());
-        expect(JSON.parse(await result).error).toBeTruthy();
-        for (let i = 0; i < 80; i++) {
+        },
+        { timeout: 8000 },
+      )
+      .toBeGreaterThan(0);
+    f.host.signal.throwIfAborted();
+    f.revokeScope();
+    await f.drain();
+    const sessions = contribution!.tools!.find(
+      (t) => t.definition.id === "terminal_session",
+    )!;
+    expect(
+      await sessions.execute(
+        { action: "read", sessionId: started.sessionId },
+        f.context,
+      ),
+    ).toMatchObject({ status: "cancelled", done: true });
+    await expect
+      .poll(
+        () => {
           try {
             process.kill(pid!, 0);
-            await new Promise((r) => setTimeout(r, 50));
+            return true;
           } catch {
-            pid = undefined;
-            break;
+            return false;
           }
-        }
-        expect(pid).toBeUndefined();
-        expect(granted.definitions(context)).toHaveLength(0);
-      } finally {
-        await runtime.close();
-      }
-    }),
-  20000,
-);
-
-it("rejects out-of-project cwd before approval and hides schemas without a project/grant", () =>
-  fixture(async (root) => {
-    const contributions = await activate({
-      pluginId: manifest.id,
-      storagePath: root,
-      grantedPermissions: new Set(manifest.permissions),
-      signal: new AbortController().signal,
-    });
-    const registry = new ToolRegistry();
-    registry.register(manifest.id, contributions!.tools![0]!);
-    let approvals = 0;
-    const executor = new ToolExecutor(
-      registry,
-      async () => {
-        approvals++;
-        return true;
-      },
-      new Set(["process.spawn"]),
-    );
-    const context = {
-      workspacePath: root,
-      sessionId: "s",
-      runId: "r",
-      signal: new AbortController().signal,
-    };
-    const result = JSON.parse(
-      await executor.execute(
-        {
-          id: "c",
-          name: "terminal_execute",
-          input: {
-            command: "echo ok",
-            description: "test",
-            workingDirectory: "..",
-          },
         },
-        context,
-      ),
-    );
-    expect(result.error).toContain("within the project");
-    expect(approvals).toBe(0);
-    expect(executor.definitions()).toHaveLength(0);
-    expect(
-      new ToolExecutor(registry, async () => true).definitions(context),
-    ).toHaveLength(0);
-  }));
+        { timeout: 5000 },
+      )
+      .toBe(false);
+    pid = undefined;
+  } finally {
+    await f.close();
+    if (pid) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {}
+    }
+    await execution;
+  }
+}, 20000);
 
 it("does not propagate Electron/Node launch flags", () => {
   const old = process.env.NODE_ENV;

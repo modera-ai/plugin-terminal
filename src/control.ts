@@ -71,7 +71,6 @@ interface ControlledTerminal {
   cols: number;
   rows: number;
   raw: string;
-  plain: string;
   baseOffset: number;
   revision: number;
   delivered: number;
@@ -246,7 +245,6 @@ export class TerminalControl {
       cols,
       rows,
       raw: "",
-      plain: "",
       baseOffset: 0,
       revision: 0,
       delivered: 0,
@@ -430,12 +428,15 @@ export class TerminalControl {
       if (Date.now() - quiet >= idleMs) break;
     }
     this.owned(context, item.id);
-    item.plain = stripAnsi(item.raw);
-    const text = item.plain.slice(item.delivered);
-    item.delivered = item.plain.length;
+    const lostOutput = item.delivered < item.baseOffset;
+    const text = stripAnsi(
+      item.raw.slice(Math.max(0, item.delivered - item.baseOffset)),
+    );
+    item.delivered = item.baseOffset + item.raw.length;
     return {
       ...this.metadata(item, context),
       text,
+      lostOutput,
       timedOut: item.alive && Date.now() - started >= timeoutMs,
     };
   }
