@@ -12,9 +12,8 @@ import {
   terminalConfiguration,
   workingDirectory,
 } from "./shell";
-import { terminalUi } from "./ui";
+import { registerTerminalPresentation } from "./presentation";
 import { TerminalSessions, sessionDefinition } from "./sessions";
-import { sessionUi } from "./session-ui";
 import { InteractiveCommands } from "./interactive";
 import { TerminalControl } from "./control";
 import { registerTerminalPanel } from "./panel";
@@ -42,9 +41,10 @@ export const activate: PluginModule["activate"] = async (host) => {
       .filter((item) => item.id.startsWith("terminal_"))
       .map((item) => [item.id, item]),
   );
-  const registered = await definePlugin((pal) =>
-    registerTerminalPanel(pal, control),
-  ).activate(host);
+  const registered = await definePlugin((pal) => {
+    registerTerminalPanel(pal, control);
+    registerTerminalPresentation(pal, sessions, interactive);
+  }).activate(host);
   const plans = new Map<string, Plan>();
   let running = 0;
   host.signal.addEventListener("abort", () => plans.clear(), { once: true });
@@ -126,11 +126,6 @@ export const activate: PluginModule["activate"] = async (host) => {
         };
       },
     },
-    ui: [
-      ...terminalUi(sessions, interactive),
-      sessionUi(),
-      ...(registered?.ui ?? []),
-    ],
     tools: [
       {
         definition,

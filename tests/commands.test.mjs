@@ -105,7 +105,7 @@ test("PAL command declarations match registration; panel is conversation-bound w
     );
     assert.equal(f.panel.scope, "conversation");
     assert.equal(f.panel.act, undefined);
-    assert.equal(f.contributions.commands.length, 9);
+    assert.equal(f.contributions.commands.length, 11);
   }));
 test("navigation keeps the process; new project and changed directory cannot control it", () =>
   fixture(async (f) => {
@@ -319,4 +319,94 @@ test("render cannot return an old terminal after configuration I/O spans disable
     assert.ok(old.data.startupError);
     assert.equal(old.data.tabId, undefined);
     assert.equal(f.ptys[0].killed, 1);
+  }));
+
+test("tool slots replace legacy approval/result UI and use private presentation commands", () =>
+  fixture(async (f) => {
+    const manifest = JSON.parse(
+      await readFile(new URL("../plugin.json", import.meta.url), "utf8"),
+    );
+    assert.deepEqual(
+      f.contributions.slotContributions,
+      manifest.declarations.consumes.slots,
+    );
+    assert.deepEqual(
+      f.contributions.ui.map((item) => item.id),
+      ["pal.terminal.panel"],
+    );
+    const read = f.contributions.commands.find(
+      (c) => c.id === "pal.terminal.presentation.read",
+    );
+    assert.equal(read.visibility, "private");
+    assert.equal(read.readOnly, true);
+    const preview = {
+      command: "echo approved",
+      description: "检查",
+      cwd: "ssh://test/a",
+      shell: "/bin/sh",
+    };
+    const request = {
+      id: "host.ui.tool.approval",
+      locale: "zh-CN",
+      sessionId: "session-a",
+      approvalId: "approval-a",
+      toolCallId: "call-a",
+      tool: {
+        name: "terminal_execute",
+        input: { command: "do not use me" },
+        result: JSON.stringify(preview),
+      },
+    };
+    const view = await read.run({}, { request, context: f.context() });
+    assert.equal(view.data.command, preview.command);
+    assert.equal(view.data.approval, true);
+    const act = f.contributions.commands.find(
+      (c) => c.id === "pal.terminal.presentation.act",
+    );
+    await assert.rejects(
+      act.run({ action: "stop" }, { request, context: f.context() }),
+      /Read-only/,
+    );
+    const pending = await read.run(
+      {},
+      {
+        request: {
+          ...request,
+          approvalId: undefined,
+          tool: {
+            name: "terminal_execute",
+            input: { command: "pending", interactive: true },
+          },
+        },
+        context: f.context(),
+      },
+    );
+    assert.equal(pending.data.inputReady, false);
+    assert.equal(pending.live, true);
+    const done = await read.run(
+      {},
+      {
+        request: {
+          ...request,
+          approvalId: undefined,
+          tool: {
+            name: "terminal_session",
+            input: {},
+            result: JSON.stringify({ sessions: [] }),
+          },
+        },
+        context: f.context(),
+      },
+    );
+    assert.deepEqual(done.data.sessions, []);
+    await assert.rejects(
+      read.run(
+        {},
+        {
+          request: { ...request, tool: { name: "unrelated", input: {} } },
+          context: f.context(),
+        },
+      ),
+      /binding/,
+    );
   }));

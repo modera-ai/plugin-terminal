@@ -15,7 +15,9 @@ export function registerTerminalPanel(
   pal: PluginRegistration,
   control: TerminalControl,
 ) {
-  for (const definition of manifest.declarations.provides.commands) {
+  for (const definition of manifest.declarations.provides.commands.filter(
+    (c) => !c.id.startsWith("pal.terminal.presentation."),
+  )) {
     pal.commands.register({
       ...(definition as PluginCommandDeclaration),
       inputSchema: definition.inputSchema,

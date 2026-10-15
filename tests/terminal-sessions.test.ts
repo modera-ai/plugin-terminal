@@ -28,7 +28,7 @@ it("foreground yield preserves a running command without a deadline, supports in
   runtime.add({
     manifest,
     load: async () => ({ activate }),
-    readFrontend: async () => ({ body: new Uint8Array(await readFile(new URL("../dist/ui/terminal-result.js", import.meta.url))), mime: "text/javascript" }),
+    readFrontend: async () => ({ body: new Uint8Array(await readFile(new URL("../dist/ui/tool-presentation.js", import.meta.url))), mime: "text/javascript" }),
   });
   await runtime.reconcile(new Set([manifest.id]));
   const context = {
