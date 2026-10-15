@@ -87,6 +87,7 @@ async function fixture(work, create) {
       scope,
       scopes,
       lifetime,
+      host,
     });
   } finally {
     lifetime.abort();
@@ -199,3 +200,123 @@ test("a PTY completing startup after scope revocation is killed and never regist
       }),
   );
 });
+
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+};
+const requestFor = (f) => ({
+  id: f.panel.id,
+  sessionId: "session-a",
+  locale: "en",
+  resource: "manual-review",
+});
+
+test("focus and close use the original manual panel resource", () =>
+  fixture(async (f) => {
+    const opened = [],
+      closed = [];
+    f.host.panels.open = async (id, resource) => opened.push({ id, resource });
+    f.host.panels.close = async (id, resource) => closed.push({ id, resource });
+    const request = requestFor(f);
+    const view = await f.panel.render(request, f.context());
+    await f.run("focus", { tabId: view.data.tabId });
+    assert.equal(opened.at(-1).resource, request.resource);
+    const focused = await f.panel.render(
+      { ...request, resource: opened.at(-1).resource },
+      f.context(),
+    );
+    assert.equal(focused.data.tabId, view.data.tabId);
+    assert.equal(f.ptys.length, 1);
+    await f.run("close", { tabId: view.data.tabId });
+    assert.equal(closed.at(-1).resource, request.resource);
+    assert.equal(f.ptys[0].killed, 1);
+  }));
+
+test("wait rejects when its terminal closes, without returning old output", () =>
+  fixture(async (f) => {
+    const tab = await f.run("open");
+    f.ptys[0].emit("OLD OUTPUT");
+    const waiting = f.run("wait", { tabId: tab.tabId, idleMs: 100 });
+    const rejected = assert.rejects(waiting, /unavailable/);
+    await f.run("close", { tabId: tab.tabId });
+    await rejected;
+    assert.equal(f.ptys[0].killed, 1);
+  }));
+
+test("re-enable starts a fresh panel before revoked startup returns; late old PTY is killed", async () => {
+  const entered = deferred(),
+    release = deferred();
+  let starts = 0;
+  await fixture(
+    async (f) => {
+      const request = requestFor(f);
+      const oldRender = f.panel.render(request, f.context());
+      await entered.promise;
+      f.scope("a").abort();
+      f.scopes.set("a", new AbortController());
+      const next = await f.panel.render(request, f.context());
+      assert.equal(f.ptys.length, 2);
+      assert.ok(next.data.tabId);
+      f.ptys[1].emit("NEW OUTPUT");
+      release.resolve();
+      const old = await oldRender;
+      assert.ok(old.data.startupError);
+      assert.equal(old.data.tabId, undefined);
+      assert.equal(f.ptys[0].killed, 1);
+      assert.equal(f.ptys[1].killed, 0);
+      assert.equal(
+        (await f.run("read", { tabId: next.data.tabId })).raw,
+        "NEW OUTPUT",
+      );
+      assert.equal(
+        (await f.panel.render(request, f.context())).data.tabId,
+        next.data.tabId,
+      );
+    },
+    async (p) => {
+      if (++starts === 1) {
+        entered.resolve();
+        await release.promise;
+      }
+      return p;
+    },
+  );
+});
+
+test("scope revocation rejects a pending wait even after re-enable", () =>
+  fixture(async (f) => {
+    const old = await f.run("open");
+    f.ptys[0].emit("OLD OUTPUT");
+    const waiting = f.run("wait", { tabId: old.tabId, idleMs: 100 });
+    const rejected = assert.rejects(waiting, /unavailable/);
+    f.scope("a").abort();
+    f.scopes.set("a", new AbortController());
+    const next = await f.run("open");
+    await rejected;
+    assert.equal((await f.run("read", { tabId: next.tabId })).raw, "");
+    assert.equal(f.ptys[0].killed, 1);
+  }));
+
+test("render cannot return an old terminal after configuration I/O spans disable/re-enable", () =>
+  fixture(async (f) => {
+    const entered = deferred(),
+      release = deferred();
+    f.host.config.read = async () => {
+      entered.resolve();
+      await release.promise;
+      return { values: {} };
+    };
+    const rendering = f.panel.render(requestFor(f), f.context());
+    await entered.promise;
+    f.scope("a").abort();
+    f.scopes.set("a", new AbortController());
+    release.resolve();
+    const old = await rendering;
+    assert.ok(old.data.startupError);
+    assert.equal(old.data.tabId, undefined);
+    assert.equal(f.ptys[0].killed, 1);
+  }));

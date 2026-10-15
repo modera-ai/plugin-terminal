@@ -312,7 +312,7 @@ export class TerminalControl {
     this.focused.set(this.scope(context), item.id);
     await this.host.panels.open(
       PANEL_ID,
-      JSON.stringify({ tabId: item.id }),
+      item.panelResource ?? JSON.stringify({ tabId: item.id }),
       context,
     );
   }
@@ -422,13 +422,14 @@ export class TerminalControl {
       await new Promise((resolve) =>
         setTimeout(resolve, Math.min(100, idleMs)),
       );
-      context.signal.throwIfAborted();
+      this.owned(context, item.id);
       if (revision !== item.revision) {
         revision = item.revision;
         quiet = Date.now();
       }
       if (Date.now() - quiet >= idleMs) break;
     }
+    this.owned(context, item.id);
     item.plain = stripAnsi(item.raw);
     const text = item.plain.slice(item.delivered);
     item.delivered = item.plain.length;
@@ -483,15 +484,17 @@ export class TerminalControl {
   }
   private kill(item: ControlledTerminal) {
     if (this.sessions.get(item.id) !== item) return;
+    const wasAlive = item.alive;
+    item.alive = false;
+    this.sessions.delete(item.id);
     item.cleanup();
     for (const listener of item.listeners)
       listener.exit({ id: item.id, exitCode: item.exitCode ?? -1 });
     item.listeners.clear();
     if (item.invalidationTimer) clearTimeout(item.invalidationTimer);
-    this.sessions.delete(item.id);
     const scope = `${item.ownerSession}:${item.projectId ?? ""}`;
     if (this.focused.get(scope) === item.id) this.focused.delete(scope);
-    if (item.alive)
+    if (wasAlive)
       try {
         item.process.kill();
       } catch {

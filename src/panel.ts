@@ -65,8 +65,35 @@ export function registerTerminalPanel(
     });
   }
   if (!pal.context.resourcePath) return;
-  const tabs = new Map<string, string>();
-  const pending = new Map<string, Promise<string>>();
+  // A new availability generation must not join revoked startup work.
+  const scopes = new WeakMap<
+    AbortSignal,
+    {
+      tabs: Map<string, string>;
+      pending: Map<string, Promise<string>>;
+    }
+  >();
+  const stateFor = (context: ToolContext) => {
+    const signal =
+      pal.context.scopeSignal?.(context.projectId) ?? pal.context.signal;
+    signal.throwIfAborted();
+    pal.context.signal.throwIfAborted();
+    let state = scopes.get(signal);
+    if (!state) {
+      state = { tabs: new Map(), pending: new Map() };
+      scopes.set(signal, state);
+      const current = state;
+      signal.addEventListener(
+        "abort",
+        () => {
+          current.tabs.clear();
+          current.pending.clear();
+        },
+        { once: true },
+      );
+    }
+    return { ...state, signal };
+  };
   const resourceTab = (request: PluginUiRequest) => {
     try {
       return String(JSON.parse(request.resource || "{}").tabId || "");
@@ -87,6 +114,7 @@ export function registerTerminalPanel(
       control.read({ tabId: explicit }, context);
       return explicit;
     }
+    const { tabs, pending, signal } = stateFor(context);
     const scope = key(request, context);
     const existing = tabs.get(scope);
     if (
@@ -99,6 +127,7 @@ export function registerTerminalPanel(
     const opening = control
       .open({}, context, false, request.resource)
       .then((tab) => {
+        signal.throwIfAborted();
         tabs.set(scope, tab.tabId);
         return tab.tabId;
       });
@@ -109,14 +138,6 @@ export function registerTerminalPanel(
       if (pending.get(scope) === opening) pending.delete(scope);
     }
   };
-  pal.context.signal.addEventListener(
-    "abort",
-    () => {
-      tabs.clear();
-      pending.clear();
-    },
-    { once: true },
-  );
   pal.ui.register({
     id: "pal.terminal.panel",
     slot: "ui.panel",
@@ -124,6 +145,8 @@ export function registerTerminalPanel(
     frontend: "terminal",
     nativeCapabilities: ["terminal"],
     requiredPermissions: ["process.spawn"],
+    // Temporary action transport: 65536 characters may expand sixfold in JSON.
+    actionLimits: { maxValueChars: 400_000 },
     commands: ["input", "resize", "close", "read", "list"].map(
       (name) => `pal.terminal.${name}`,
     ),
@@ -141,9 +164,18 @@ export function registerTerminalPanel(
       },
     },
     bindTerminal(request, context) {
-      const tabId = resourceTab(request) || tabs.get(key(request, context));
+      const { tabs } = stateFor(context);
+      const resource = key(request, context);
+      const tabId = resourceTab(request) || tabs.get(resource);
       if (!tabId) throw new Error("Terminal tab unavailable");
-      return control.port(tabId, context);
+      const port = control.port(tabId, context);
+      return {
+        ...port,
+        close() {
+          port.close?.();
+          if (tabs.get(resource) === tabId) tabs.delete(resource);
+        },
+      };
     },
     async render(request, context) {
       const title = `${request.locale.startsWith("zh") ? "终端" : "Terminal"} · ${context.projectId ?? "independent"} / ${context.sessionId.slice(0, 8)}`;
@@ -154,14 +186,17 @@ export function registerTerminalPanel(
       };
       try {
         const tabId = await ensureTab(request, context);
+        const config =
+          (await pal.context.config?.read(context.projectId))?.values ?? {};
+        // Configuration may await I/O while this instance is closed or revoked.
+        const terminal = control.read({ tabId }, context);
         return {
           title,
           data: {
             tabId,
             binding,
-            cwd: control.read({ tabId }, context).cwd,
-            config:
-              (await pal.context.config?.read(context.projectId))?.values ?? {},
+            cwd: terminal.cwd,
+            config,
           },
           children: [],
         };
