@@ -1,7 +1,7 @@
-import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
-import { access, realpath, stat } from "@modera/plugin-sdk/workspace-fs";
+import { isRemotePath } from "@pal/plugin-sdk/workspace-path";
+import { access, realpath, stat } from "@pal/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "@modera/plugin-sdk/workspace-path";
+import { isAbsolute, join, relative, resolve } from "@pal/plugin-sdk/workspace-path";
 
 export type AgentEnvironment = "windows-native" | "wsl";
 

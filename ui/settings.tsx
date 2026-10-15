@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { FolderOpenIcon as FolderOpen } from "@phosphor-icons/react/dist/csr/FolderOpen";
-import { Button, DialogNotice, Input, Select, Switch, UiProvider } from "@modera/ui";
-import { FieldRow, Form, FormItem, SettingsColumns, SettingsPage, SettingsPanel } from "@modera/ui/settings";
-import "@modera/ui/styles.css";
-import { frontend, mountPlugin, settingsAction, useSettings } from "@modera/plugin-sdk/react";
+import { Button, DialogNotice, Input, Select, Switch, UiProvider } from "@pal/ui";
+import { FieldRow, Form, FormItem, SettingsColumns, SettingsPage, SettingsPanel } from "@pal/ui/settings";
+import "@pal/ui/styles.css";
+import { frontend, mountPlugin, settingsAction, useSettings } from "@pal/plugin-sdk/react";
 
 interface Detection {
   shells: { id: string; label: string; path: string }[];

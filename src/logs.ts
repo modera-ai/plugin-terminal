@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { isUtf8 } from "node:buffer";
-import { mkdir, readdir, open, lstat } from "@modera/plugin-sdk/workspace-fs";
-import { join } from "@modera/plugin-sdk/workspace-path";
-import type { ToolContext } from "@modera/plugin-sdk";
+import { mkdir, readdir, open, lstat } from "@pal/plugin-sdk/workspace-fs";
+import { join } from "@pal/plugin-sdk/workspace-path";
+import type { ToolContext } from "@pal/plugin-sdk";
 
 const limit = 4 * 1024 * 1024;
 const logName = /^[a-f0-9]{24}-[a-f0-9-]{36}\.log$/;

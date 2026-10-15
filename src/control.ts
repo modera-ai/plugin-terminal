@@ -1,11 +1,20 @@
-import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
-import { remoteTransport, type WorkspacePty } from "@modera/plugin-sdk/workspace-transport";
-import { access } from "@modera/plugin-sdk/workspace-fs";
+import { isRemotePath } from "@pal/plugin-sdk/workspace-path";
+import {
+  remoteTransport,
+  type WorkspacePty,
+} from "@pal/plugin-sdk/workspace-transport";
+import { access } from "@pal/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
-import { basename } from "@modera/plugin-sdk/workspace-path";
+import { basename } from "@pal/plugin-sdk/workspace-path";
 import { randomUUID } from "node:crypto";
 import * as pty from "node-pty";
-import type { PluginContext, ToolContext, PluginTerminalPort, TerminalOutputEvent, TerminalExitEvent } from "@modera/plugin-sdk";
+import type {
+  PluginContext,
+  ToolContext,
+  PluginTerminalPort,
+  TerminalOutputEvent,
+  TerminalExitEvent,
+} from "@pal/plugin-sdk";
 import {
   childEnvironment,
   terminalConfiguration,
@@ -14,7 +23,7 @@ import {
 import { detectTerminalOptions } from "./terminal-detection";
 
 const MAX_BUFFER = 1_000_000;
-const PANEL_ID = "modera.terminal.panel";
+const PANEL_ID = "pal.terminal.panel";
 const keys: Record<string, string> = {
   enter: "\r",
   tab: "\t",
@@ -51,6 +60,9 @@ const keys: Record<string, string> = {
 interface ControlledTerminal {
   id: string;
   ownerSession: string;
+  root: string;
+  cleanup: () => void;
+  panelResource?: string;
   projectId: string | undefined;
   process: pty.IPty | WorkspacePty;
   title: string;
@@ -67,7 +79,10 @@ interface ControlledTerminal {
   alive: boolean;
   exitCode: number | null;
   invalidationTimer?: ReturnType<typeof setTimeout>;
-  listeners: Set<{output:(event:TerminalOutputEvent)=>void;exit:(event:TerminalExitEvent)=>void}>;
+  listeners: Set<{
+    output: (event: TerminalOutputEvent) => void;
+    exit: (event: TerminalExitEvent) => void;
+  }>;
 }
 
 export interface OpenTerminalInput {
@@ -95,6 +110,8 @@ export class TerminalControl {
     return `${context.sessionId}:${context.projectId ?? ""}`;
   }
   private owned(context: ToolContext, requested?: string): ControlledTerminal {
+    context.signal.throwIfAborted();
+    this.host.signal.throwIfAborted();
     const id =
       !requested || requested === "current"
         ? this.focused.get(this.scope(context))
@@ -103,7 +120,8 @@ export class TerminalControl {
     if (
       !terminal ||
       terminal.ownerSession !== context.sessionId ||
-      terminal.projectId !== context.projectId
+      terminal.projectId !== context.projectId ||
+      terminal.root !== context.workspacePath
     )
       throw new Error("Terminal tab unavailable; call terminal_open first");
     return terminal;
@@ -111,8 +129,12 @@ export class TerminalControl {
   private metadata(item: ControlledTerminal, context: ToolContext) {
     return {
       tabId: item.id,
+      pid: item.process.pid,
       title: item.title,
       cwd: item.cwd,
+      root: item.root,
+      projectId: item.projectId,
+      sessionId: item.ownerSession,
       shellPath: item.shell,
       cols: item.cols,
       rows: item.rows,
@@ -122,7 +144,8 @@ export class TerminalControl {
     };
   }
   private async shell(input: OpenTerminalInput, context: ToolContext) {
-    if (isRemotePath(context.workspacePath)) return { shell: "/bin/sh", config: terminalConfiguration(undefined) };
+    if (isRemotePath(context.workspacePath))
+      return { shell: "/bin/sh", config: terminalConfiguration(undefined) };
     const config = terminalConfiguration(
       (await this.host.config?.read(context.projectId))?.values,
     );
@@ -134,7 +157,21 @@ export class TerminalControl {
       await access(shell, constants.X_OK);
     return { shell, config };
   }
-  async open(input: OpenTerminalInput, context: ToolContext, show = true) {
+  async open(
+    input: OpenTerminalInput,
+    context: ToolContext,
+    show = true,
+    panelResource?: string,
+  ) {
+    context.signal.throwIfAborted();
+    this.host.signal.throwIfAborted();
+    const scopeSignal =
+      this.host.scopeSignal?.(context.projectId) ?? this.host.signal;
+    const check = () => {
+      context.signal.throwIfAborted();
+      scopeSignal.throwIfAborted();
+      this.host.signal.throwIfAborted();
+    };
     if (!context.workspacePath)
       throw new Error("Terminal requires a project workspace");
     const scoped = [...this.sessions.values()].filter(
@@ -168,17 +205,39 @@ export class TerminalControl {
         (entry): entry is [string, string] => typeof entry[1] === "string",
       ),
     );
-    const processHandle = isRemotePath(cwd) ? await remoteTransport().pty(cwd, cols, rows) : pty.spawn(shell, args, {
-      name: "xterm-256color",
-      cols,
-      rows,
-      ...(!isWsl ? { cwd } : {}),
-      env: { ...env, TERM: "xterm-256color", COLORTERM: "truecolor" },
-      useConpty: process.platform === "win32",
-    });
+    check();
+    const processHandle = isRemotePath(cwd)
+      ? await remoteTransport().pty(cwd, cols, rows)
+      : pty.spawn(shell, args, {
+          name: "xterm-256color",
+          cols,
+          rows,
+          ...(!isWsl ? { cwd } : {}),
+          env: { ...env, TERM: "xterm-256color", COLORTERM: "truecolor" },
+          useConpty: process.platform === "win32",
+        });
+    try {
+      check();
+      if (
+        [...this.sessions.values()].filter(
+          (item) =>
+            item.ownerSession === context.sessionId &&
+            item.projectId === context.projectId,
+        ).length >= 8
+      )
+        throw new Error("At most 8 terminal tabs may be open");
+    } catch (error) {
+      try {
+        processHandle.kill();
+      } catch {}
+      throw error;
+    }
     const item: ControlledTerminal = {
       id: randomUUID(),
       ownerSession: context.sessionId,
+      root: context.workspacePath,
+      cleanup: () => {},
+      ...(panelResource ? { panelResource } : {}),
       projectId: context.projectId,
       process: processHandle,
       title: basename(shell),
@@ -196,9 +255,13 @@ export class TerminalControl {
       exitCode: null,
       listeners: new Set(),
     };
+    const stop = () => this.kill(item);
+    scopeSignal.addEventListener("abort", stop, { once: true });
+    item.cleanup = () => scopeSignal.removeEventListener("abort", stop);
     this.sessions.set(item.id, item);
     this.focused.set(this.scope(context), item.id);
-    processHandle.onData((data) => {
+    const outputSubscription = processHandle.onData((data) => {
+      if (this.sessions.get(item.id) !== item) return;
       const offset = item.baseOffset + item.raw.length;
       const combined = item.raw + data;
       const removed = Math.max(0, combined.length - MAX_BUFFER);
@@ -206,25 +269,42 @@ export class TerminalControl {
       item.baseOffset += removed;
       item.revision++;
       item.updatedAt = Date.now();
-      for (const listener of item.listeners) listener.output({id:item.id,data,offset});
+      for (const listener of item.listeners)
+        listener.output({ id: item.id, data, offset });
       if (item.listeners.size) return;
-      if (!item.invalidationTimer) item.invalidationTimer = setTimeout(() => {
-        item.invalidationTimer = undefined;
-        if (!this.host.signal.aborted) this.host.invalidateUi?.(item.ownerSession);
-      }, 100);
+      if (!item.invalidationTimer)
+        item.invalidationTimer = setTimeout(() => {
+          item.invalidationTimer = undefined;
+          if (!this.host.signal.aborted)
+            this.host.invalidateUi?.(item.ownerSession);
+        }, 100);
       item.invalidationTimer.unref();
     });
-    processHandle.onExit(({ exitCode }) => {
+    const exitSubscription = processHandle.onExit(({ exitCode }) => {
+      if (this.sessions.get(item.id) !== item) return;
       if (item.invalidationTimer) clearTimeout(item.invalidationTimer);
       item.invalidationTimer = undefined;
       item.alive = false;
       item.exitCode = exitCode;
       item.revision++;
       item.updatedAt = Date.now();
-      for (const listener of item.listeners) listener.exit({id:item.id,exitCode});
+      for (const listener of item.listeners)
+        listener.exit({ id: item.id, exitCode });
       this.host.invalidateUi?.(item.ownerSession);
     });
-    if (show) await this.show(item, context);
+    const releaseScope = item.cleanup;
+    item.cleanup = () => {
+      releaseScope();
+      outputSubscription.dispose();
+      exitSubscription.dispose();
+    };
+    try {
+      if (show) await this.show(item, context);
+      check();
+    } catch (error) {
+      this.kill(item);
+      throw error;
+    }
     return this.metadata(item, context);
   }
   async show(item: ControlledTerminal, context: ToolContext) {
@@ -278,20 +358,36 @@ export class TerminalControl {
     if (!item.alive) throw new Error("Terminal process has exited");
     item.process.write(data);
   }
-  port(tabId:string,context:ToolContext): PluginTerminalPort {
-    const item = this.owned(context,tabId);
+  port(tabId: string, context: ToolContext): PluginTerminalPort {
+    const item = this.owned(context, tabId);
     return {
-      snapshot: () => {
-        const current = this.owned(context,tabId);
-        return {id:current.id,shell:current.shell,cwd:current.cwd,raw:current.raw,baseOffset:current.baseOffset,nextCursor:current.baseOffset+current.raw.length,alive:current.alive,exitCode:current.exitCode};
+      close: () => {
+        if (this.sessions.get(item.id) === item) this.kill(item);
       },
-      write: data => this.writeRaw(tabId,data,context),
-      resize: (cols,rows) => {this.resize({tabId,cols,rows},context);},
-      subscribe: (output,exit) => {
-        this.owned(context,tabId);
-        const listener = {output,exit};
+      snapshot: () => {
+        const current = this.owned(context, tabId);
+        return {
+          id: current.id,
+          shell: current.shell,
+          cwd: current.cwd,
+          raw: current.raw,
+          baseOffset: current.baseOffset,
+          nextCursor: current.baseOffset + current.raw.length,
+          alive: current.alive,
+          exitCode: current.exitCode,
+        };
+      },
+      write: (data) => this.writeRaw(tabId, data, context),
+      resize: (cols, rows) => {
+        this.resize({ tabId, cols, rows }, context);
+      },
+      subscribe: (output, exit) => {
+        this.owned(context, tabId);
+        const listener = { output, exit };
         item.listeners.add(listener);
-        return () => {item.listeners.delete(listener);};
+        return () => {
+          item.listeners.delete(listener);
+        };
       },
     };
   }
@@ -356,7 +452,7 @@ export class TerminalControl {
     if (hide)
       await this.host.panels?.close(
         PANEL_ID,
-        JSON.stringify({ tabId: item.id }),
+        item.panelResource ?? JSON.stringify({ tabId: item.id }),
         context,
       );
     return { ok: true, tabId: item.id, activeTabId: next ?? null };
@@ -367,6 +463,8 @@ export class TerminalControl {
     return this.metadata(item, context);
   }
   list(context: ToolContext) {
+    context.signal.throwIfAborted();
+    this.host.signal.throwIfAborted();
     const scope = this.scope(context);
     return {
       activeTabId: this.focused.get(scope) ?? null,
@@ -374,7 +472,8 @@ export class TerminalControl {
         .filter(
           (item) =>
             item.ownerSession === context.sessionId &&
-            item.projectId === context.projectId,
+            item.projectId === context.projectId &&
+            item.root === context.workspacePath,
         )
         .map((item) => this.metadata(item, context)),
     };
@@ -383,9 +482,15 @@ export class TerminalControl {
     return this.read({ tabId, cursor }, context);
   }
   private kill(item: ControlledTerminal) {
+    if (this.sessions.get(item.id) !== item) return;
+    item.cleanup();
+    for (const listener of item.listeners)
+      listener.exit({ id: item.id, exitCode: item.exitCode ?? -1 });
     item.listeners.clear();
     if (item.invalidationTimer) clearTimeout(item.invalidationTimer);
     this.sessions.delete(item.id);
+    const scope = `${item.ownerSession}:${item.projectId ?? ""}`;
+    if (this.focused.get(scope) === item.id) this.focused.delete(scope);
     if (item.alive)
       try {
         item.process.kill();

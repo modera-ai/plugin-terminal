@@ -1,5 +1,5 @@
 {
-  "name": "@modera-plugin/terminal",
+  "name": "@pal-plugin/terminal",
   "version": "0.8.3",
   "type": "module",
   "description": "Run build, test and Git commands with approval, cancellation and timeouts.",
@@ -9,19 +9,24 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "modera-plugin-build .",
-    "pack": "modera-plugin pack .",
-    "release": "modera-plugin release . --publish",
-    "dev": "node tools/modera-dev.mjs"
+    "build": "pal-plugin-build .",
+    "pack": "pal-plugin pack .",
+    "release": "pal-plugin release . --publish",
+    "dev": "node tools/pal-dev.mjs",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
+    "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
-    "@modera/contracts": "file:vendor/modera-contracts-0.1.0.tgz",
-    "@modera/plugin-build": "file:vendor/modera-plugin-build-0.1.0.tgz",
-    "@modera/plugin-sdk": "file:vendor/modera-plugin-sdk-0.1.0.tgz",
-    "@types/react-dom": "^19.1.9"
+    "@pal/contracts": "file:vendor/pal-contracts-0.1.0.tgz",
+    "@pal/plugin-build": "file:vendor/pal-plugin-build-0.1.0.tgz",
+    "@pal/plugin-sdk": "file:vendor/pal-plugin-sdk-0.1.0.tgz",
+    "@pal/ui": "file:vendor/pal-ui-0.1.0.tgz",
+    "@types/node": "^24.19.1",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@modera/ui": "file:vendor/modera-ui-0.1.0.tgz",
     "@phosphor-icons/react": "^2.1.10",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",

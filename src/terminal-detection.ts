@@ -1,7 +1,7 @@
-import { access } from "@modera/plugin-sdk/workspace-fs";
+import { access } from "@pal/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
-import { basename, dirname, join } from "@modera/plugin-sdk/workspace-path";
-import { execFile } from "@modera/plugin-sdk/workspace-process";
+import { basename, dirname, join } from "@pal/plugin-sdk/workspace-path";
+import { execFile } from "@pal/plugin-sdk/workspace-process";
 import { promisify } from "node:util";
 
 const execute = promisify(execFile);

@@ -5,7 +5,7 @@
     "ssh"
   ],
   "activationScope": "scoped",
-  "id": "modera.terminal",
+  "id": "pal.terminal",
   "name": "Terminal",
   "version": "0.8.3",
   "description": "执行构建、测试与 Git 命令，支持审批、取消和超时。",
@@ -20,14 +20,10 @@
     }
   },
   "permissions": [
-    "process.spawn",
     "storage.read",
     "storage.write"
   ],
   "extensions": [
-    "panel",
-    "tool.result",
-    "tool.approval",
     "settings"
   ],
   "configScope": "global",
@@ -593,6 +589,265 @@
     },
     "zh-CN": {
       "name": "终端"
+    }
+  },
+  "requiresHost": {
+    "plugin.commands.dispatch": 1,
+    "plugin.commands.callable": 1,
+    "plugin.declarations": 1,
+    "frontend.commands.execute": 1,
+    "frontend.terminal.lifecycle": 1
+  },
+  "declarations": {
+    "provides": {
+      "commands": [
+        {
+          "id": "pal.terminal.open",
+          "title": "Terminal: open",
+          "visibility": "public",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cwd": {
+                "type": "string"
+              },
+              "shellPath": {
+                "type": "string"
+              },
+              "cols": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 500
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 300
+              }
+            },
+            "required": []
+          }
+        },
+        {
+          "id": "pal.terminal.send",
+          "title": "Terminal: send",
+          "visibility": "public",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              },
+              "input": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "keys": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": []
+          }
+        },
+        {
+          "id": "pal.terminal.read",
+          "title": "Terminal: read",
+          "visibility": "public",
+          "readOnly": true,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              },
+              "cursor": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": []
+          }
+        },
+        {
+          "id": "pal.terminal.resize",
+          "title": "Terminal: resize",
+          "visibility": "public",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              },
+              "cols": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 500
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 300
+              }
+            },
+            "required": [
+              "cols",
+              "rows"
+            ]
+          }
+        },
+        {
+          "id": "pal.terminal.wait",
+          "title": "Terminal: wait",
+          "visibility": "public",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              },
+              "idleMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 5000
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 1800000
+              }
+            },
+            "required": []
+          }
+        },
+        {
+          "id": "pal.terminal.close",
+          "title": "Terminal: close",
+          "visibility": "public",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              }
+            },
+            "required": []
+          }
+        },
+        {
+          "id": "pal.terminal.focus",
+          "title": "Terminal: focus",
+          "visibility": "public",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tabId"
+            ]
+          }
+        },
+        {
+          "id": "pal.terminal.list",
+          "title": "Terminal: list",
+          "visibility": "public",
+          "readOnly": true,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        {
+          "id": "pal.terminal.input",
+          "title": "Terminal: input",
+          "visibility": "private",
+          "readOnly": false,
+          "requiredPermissions": [
+            "process.spawn"
+          ],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tabId": {
+                "type": "string"
+              },
+              "data": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            },
+            "required": [
+              "tabId",
+              "data"
+            ]
+          }
+        }
+      ],
+      "ui": [
+        {
+          "id": "pal.terminal.panel",
+          "slot": "ui.panel",
+          "description": "固定在打开时会话和工作目录的交互终端。"
+        },
+        {
+          "id": "pal.terminal.approval",
+          "slot": "tool.approval"
+        },
+        {
+          "id": "pal.terminal.result",
+          "slot": "tool.result"
+        },
+        {
+          "id": "pal.terminal.session-result",
+          "slot": "tool.result"
+        }
+      ]
     }
   }
 }

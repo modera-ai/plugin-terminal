@@ -1,1 +1,1 @@
-export { useSettings, settingsAction } from "@modera/plugin-sdk/react";
+export { useSettings, settingsAction } from "@pal/plugin-sdk/react";

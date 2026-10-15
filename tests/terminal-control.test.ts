@@ -42,7 +42,7 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
   const controller = new AbortController();
   const opened: { id: string; resource?: string }[] = [];
   const host = {
-    pluginId: "modera.terminal",
+    pluginId: "pal.terminal",
     storagePath: "",
     grantedPermissions: new Set(["process.spawn"]),
     signal: controller.signal,
@@ -73,7 +73,7 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
   };
   const control = new TerminalControl(host);
   const first = await control.open({}, context);
-  expect(opened[0]?.id).toBe("modera.terminal.panel");
+  expect(opened[0]?.id).toBe("pal.terminal.panel");
   expect(JSON.parse(opened[0]?.resource || "{}").tabId).toBe(first.tabId);
   control.send({ input: "echo hello" }, context);
   expect(spawned[0]?.writes.at(-1)).toBe("echo hello\r");
@@ -103,7 +103,7 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
 it("rejects cross-conversation access and ambiguous send input", async () => {
   const controller = new AbortController();
   const host = {
-    pluginId: "modera.terminal",
+    pluginId: "pal.terminal",
     storagePath: "",
     grantedPermissions: new Set(["process.spawn"]),
     signal: controller.signal,

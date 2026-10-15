@@ -1,5 +1,5 @@
-import { spawn, isRemoteProcess, type ChildProcess } from "@modera/plugin-sdk/workspace-process";
-import { join } from "@modera/plugin-sdk/workspace-path";
+import { spawn, isRemoteProcess, type ChildProcess } from "@pal/plugin-sdk/workspace-process";
+import { join } from "@pal/plugin-sdk/workspace-path";
 import { stripVTControlCharacters } from "node:util";
 import { childEnvironment, spawnCommand } from "./shell";
 

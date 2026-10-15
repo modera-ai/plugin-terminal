@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import type { PluginUiRequest, ToolContext } from "@modera/plugin-sdk";
+import type { PluginUiRequest, ToolContext } from "@pal/plugin-sdk";
 import { terminalUi } from "../src/ui";
 import { InteractiveCommands } from "../src/interactive";
 import type { TerminalSessions } from "../src/sessions";

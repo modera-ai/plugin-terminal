@@ -1,7 +1,7 @@
-import type { PluginUiContribution } from "@modera/plugin-sdk";
+import type { PluginUiContribution } from "@pal/plugin-sdk";
 export function sessionUi(): PluginUiContribution {
   return {
-    id: "modera.terminal.session-result",
+    id: "pal.terminal.session-result",
     slot: "tool.result",
     hostRenderer: "terminal-result",
     toolNames: ["terminal_session"],

@@ -4,16 +4,24 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { frontend, usePluginSnapshot } from "@modera/plugin-sdk/react";
-import type { TerminalOutputEvent, TerminalExitEvent } from "@modera/plugin-sdk";
-import { operationErrorDetail } from "@modera/contracts";
+import { frontend, usePluginSnapshot } from "@pal/plugin-sdk/react";
+import type { TerminalOutputEvent, TerminalExitEvent } from "@pal/plugin-sdk";
+import { operationErrorDetail } from "@pal/contracts";
+
+interface PanelData {
+  startupError?: string;
+  cwd?: string;
+  config?: Record<string, unknown>;
+}
 
 function TerminalPanel() {
   const element = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const [error, setError] = useState("");
   const { snapshot } = usePluginSnapshot();
-  const startupError = (snapshot?.view.data as { startupError?: string } | undefined)?.startupError;
+  const startupError = (
+    snapshot?.view.data as { startupError?: string } | undefined
+  )?.startupError;
   const values =
     (snapshot?.view.data as { config?: Record<string, unknown> } | undefined)
       ?.config ?? {};
@@ -21,12 +29,14 @@ function TerminalPanel() {
     if (!element.current || !snapshot) return;
     const readTheme = () => {
       const css = getComputedStyle(document.documentElement);
-      return ({
-      background: css.getPropertyValue("--mu-page").trim() || "#101318",
-      foreground: css.getPropertyValue("--mu-ink").trim() || "#e6e9ef",
-      cursor: css.getPropertyValue("--mu-accent").trim() || "#e6e9ef",
-      selectionBackground: css.getPropertyValue("--mu-soft").trim() || "#ffffff33",
-    }); };
+      return {
+        background: css.getPropertyValue("--mu-page").trim() || "#101318",
+        foreground: css.getPropertyValue("--mu-ink").trim() || "#e6e9ef",
+        cursor: css.getPropertyValue("--mu-accent").trim() || "#e6e9ef",
+        selectionBackground:
+          css.getPropertyValue("--mu-soft").trim() || "#ffffff33",
+      };
+    };
     const terminal = new Terminal({
       cursorBlink: true,
       convertEol: false,
@@ -58,7 +68,10 @@ function TerminalPanel() {
       ),
     );
     const api = frontend().terminal;
-    const stopTheme = frontend().onThemeChanged(() => { terminal.options.theme = readTheme(); });
+    const commands = frontend().commands;
+    const stopTheme = frontend().onThemeChanged(() => {
+      terminal.options.theme = readTheme();
+    });
     fit.fit();
     let id = "";
     let cursor = 0;
@@ -68,16 +81,22 @@ function TerminalPanel() {
     let pendingExit: TerminalExitEvent | undefined;
     const apply = (event: TerminalOutputEvent) => {
       if (stopped) return;
-      if (!id) {buffered.push(event);return;}
+      if (!id) {
+        buffered.push(event);
+        return;
+      }
       if (event.id !== id) return;
       const offset = event.offset ?? cursor;
-      const skip = Math.max(0,cursor-offset);
+      const skip = Math.max(0, cursor - offset);
       if (skip < event.data.length) terminal.write(event.data.slice(skip));
-      cursor = Math.max(cursor,offset+event.data.length);
+      cursor = Math.max(cursor, offset + event.data.length);
     };
     const exit = (event: TerminalExitEvent) => {
       if (stopped) return;
-      if (!id) {pendingExit=event;return;}
+      if (!id) {
+        pendingExit = event;
+        return;
+      }
       if (event.id !== id || exited) return;
       exited = true;
       terminal.writeln(`\r\n[process exited with code ${event.exitCode}]`);
@@ -85,18 +104,37 @@ function TerminalPanel() {
     const stopOutput = api.onOutput(apply);
     const stopExit = api.onExit(exit);
     // Subscribe before replay to avoid losing output while attach is resolving.
-    void (startupError ? Promise.reject(new Error(startupError)) : api.attach()).then(info => {
-      if (stopped) {void api.close(info.id).catch(()=>{});return;}
-      id = info.id;
-      terminal.write(info.raw);
-      cursor = info.nextCursor;
-      for (const event of buffered.splice(0)) apply(event);
-      if (pendingExit) exit(pendingExit);
-      if (!info.alive) exit({id,exitCode:info.exitCode ?? -1});
-      if (info.alive) void api.resize(id,terminal.cols,terminal.rows).catch(e=>setError(String(e)));
-    }).catch(e => {if (!stopped) {buffered.length=0;setError(`[Terminal] failed to start: ${operationErrorDetail(e)}`);}});
+    void (startupError ? Promise.reject(new Error(startupError)) : api.attach())
+      .then((info) => {
+        if (stopped) return;
+        id = info.id;
+        terminal.write(info.raw);
+        cursor = info.nextCursor;
+        for (const event of buffered.splice(0)) apply(event);
+        if (pendingExit) exit(pendingExit);
+        if (!info.alive) exit({ id, exitCode: info.exitCode ?? -1 });
+        if (info.alive)
+          void commands
+            .execute("pal.terminal.resize", {
+              tabId: id,
+              cols: terminal.cols,
+              rows: terminal.rows,
+            })
+            .catch((e) => setError(String(e)));
+      })
+      .catch((e) => {
+        if (!stopped) {
+          buffered.length = 0;
+          setError(`[Terminal] failed to start: ${operationErrorDetail(e)}`);
+        }
+      });
     const input = terminal.onData((data) => {
-      if (id && !exited) void api.write(id,data).catch(e=>{if(!stopped)setError(String(e));});
+      if (id && !exited)
+        void commands
+          .execute("pal.terminal.input", { tabId: id, data })
+          .catch((e) => {
+            if (!stopped) setError(String(e));
+          });
     });
     let fitFrame = 0;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -121,7 +159,8 @@ function TerminalPanel() {
       resizeTimer = setTimeout(() => {
         resizeTimer = undefined;
         if (id)
-          void api.resize(id,cols,rows)
+          void commands
+            .execute("pal.terminal.resize", { tabId: id, cols, rows })
             .catch(() => {});
       }, 120);
     });
@@ -132,7 +171,7 @@ function TerminalPanel() {
       stopTheme();
       stopOutput();
       stopExit();
-      if (id) void api.close(id).catch(()=>{});
+      // Surface disposal closes the PTY; navigation and renderer cleanup do not.
       observer.disconnect();
       cancelAnimationFrame(fitFrame);
       if (resizeTimer) clearTimeout(resizeTimer);
@@ -143,7 +182,10 @@ function TerminalPanel() {
     };
   }, [Boolean(snapshot), startupError]);
   useEffect(() => {
-    if (error) terminalRef.current?.writeln(`\r\n\x1b[31m${operationErrorDetail(error).replace(/\n/g, "\r\n")}\x1b[0m`);
+    if (error)
+      terminalRef.current?.writeln(
+        `\r\n\x1b[31m${operationErrorDetail(error).replace(/\n/g, "\r\n")}\x1b[0m`,
+      );
   }, [error]);
   useEffect(() => {
     const terminal = terminalRef.current;
@@ -164,8 +206,24 @@ function TerminalPanel() {
   ]);
   return (
     <main className="terminal-shell">
+      <div
+        className="terminal-binding"
+        title={String(
+          (snapshot?.view.data as PanelData | undefined)?.cwd ?? "",
+        )}
+      >
+        {snapshot?.view.title} ·{" "}
+        {String((snapshot?.view.data as PanelData | undefined)?.cwd ?? "")}
+      </div>
       <div ref={element} className="terminal-host" />
-      {error && <button className="terminal-retry" onClick={() => window.location.reload()}>{snapshot?.locale.startsWith("zh") ? "重试" : "Retry"}</button>}
+      {error && (
+        <button
+          className="terminal-retry"
+          onClick={() => window.location.reload()}
+        >
+          {snapshot?.locale.startsWith("zh") ? "重试" : "Retry"}
+        </button>
+      )}
     </main>
   );
 }

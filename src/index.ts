@@ -1,13 +1,11 @@
-import { isRemotePath } from "@modera/plugin-sdk/workspace-path";
-import { operationErrorDetail } from "@modera/contracts";
+import { isRemotePath } from "@pal/plugin-sdk/workspace-path";
 import manifest from "../plugin.json";
-import { declaredTool, declaredTools } from "@modera/plugin-sdk";
+import { definePlugin, declaredTool, declaredTools } from "@pal/plugin-sdk";
 import type {
   PluginModule,
-  PluginUiContribution,
   ToolContext,
   ToolContribution,
-} from "@modera/plugin-sdk";
+} from "@pal/plugin-sdk";
 import { randomUUID } from "node:crypto";
 import {
   findAgentShell,
@@ -19,6 +17,7 @@ import { TerminalSessions, sessionDefinition } from "./sessions";
 import { sessionUi } from "./session-ui";
 import { InteractiveCommands } from "./interactive";
 import { TerminalControl } from "./control";
+import { registerTerminalPanel } from "./panel";
 
 const definition = declaredTool(manifest, "terminal_execute");
 interface Plan {
@@ -43,96 +42,9 @@ export const activate: PluginModule["activate"] = async (host) => {
       .filter((item) => item.id.startsWith("terminal_"))
       .map((item) => [item.id, item]),
   );
-  const panelTabs = new Map<string, string>();
-  const panelCursors = new Map<string, number>();
-  const panelUi: PluginUiContribution | undefined = host.resourcePath
-    ? {
-        id: "modera.terminal.panel",
-        slot: "panel",
-        frontend: "terminal",
-        nativeCapabilities: ["terminal"],
-        requiredPermissions: ["process.spawn"],
-        launcher: {
-          multiple: true,
-          title: "Terminal",
-          description: "Open an interactive shell in the project",
-          icon: "terminal",
-          locales: {
-            "zh-CN": { title: "终端", description: "在项目中打开交互式 Shell" },
-          },
-        },
-        actions: ["refresh", "write", "resize", "close"],
-        readOnlyActions: ["refresh"],
-        bindTerminal(request,context) {
-          const panelKey = `${context.sessionId}:${request.resource || "default"}`;
-          let tabId = "";
-          try {tabId=String(JSON.parse(request.resource || "{}").tabId || "");} catch { /* launcher resource */ }
-          tabId ||= panelTabs.get(panelKey) || "";
-          if (!tabId) throw new Error("Terminal tab unavailable");
-          return control.port(tabId,context);
-        },
-        async render(request, context) {
-          try {
-          const panelKey = `${context.sessionId}:${request.resource || "default"}`;
-          let tabId = "";
-          try {
-            tabId = String(JSON.parse(request.resource || "{}").tabId || "");
-          } catch {
-            /* new manual panel */
-          }
-          tabId ||= panelTabs.get(panelKey) || "";
-          if (!tabId) tabId = (await control.open({}, context, false)).tabId;
-          panelTabs.set(panelKey, tabId);
-          const cursor = panelCursors.get(panelKey) ?? 0;
-          panelCursors.delete(panelKey);
-          const terminal = control.read({ tabId, cursor }, context);
-          return {
-            title: request.locale.startsWith("zh") ? "终端" : "Terminal",
-            data: {
-              tabId,
-              terminal,
-              cwd: context.workspacePath,
-              config:
-                (await host.config?.read(context.projectId))?.values ?? {},
-            },
-            children: [],
-          };
-          } catch (error) {
-            return {
-              title: request.locale.startsWith("zh") ? "终端" : "Terminal",
-              data: { startupError: operationErrorDetail(error), cwd: context.workspacePath, config: {} },
-              children: [],
-            };
-          }
-        },
-        async act(action, context, request) {
-          const panelKey = `${context.sessionId}:${request.resource || "default"}`;
-          let tabId = "";
-          try {
-            tabId = String(JSON.parse(request.resource || "{}").tabId || "");
-          } catch {
-            /* launcher resource */
-          }
-          tabId ||= panelTabs.get(panelKey) || "";
-          if (action.id === "refresh" && !tabId) return;
-          if (!tabId) throw new Error("Terminal tab unavailable");
-          const value = action.value ? JSON.parse(action.value) : {};
-          if (Number.isSafeInteger(value.cursor) && value.cursor >= 0)
-            panelCursors.set(panelKey, value.cursor);
-          if (action.id === "refresh") return;
-          if (action.id === "write")
-            control.writeRaw(tabId, String(value.data || ""), context);
-          else if (action.id === "resize")
-            control.resize(
-              { tabId, cols: Number(value.cols), rows: Number(value.rows) },
-              context,
-            );
-          else if (action.id === "close")
-            await control.close({ tabId }, context, false);
-          else throw new Error("Unknown terminal panel action");
-        },
-      }
-    : undefined;
+  const registered = await definePlugin((pal) =>
+    registerTerminalPanel(pal, control),
+  ).activate(host);
   const plans = new Map<string, Plan>();
   let running = 0;
   host.signal.addEventListener("abort", () => plans.clear(), { once: true });
@@ -149,7 +61,9 @@ export const activate: PluginModule["activate"] = async (host) => {
     const configuration = terminalConfiguration(
       (await host.config?.read(context.projectId))?.values,
     );
-    const shell = isRemotePath(context.workspacePath) ? "/bin/sh" : await findAgentShell(configuration);
+    const shell = isRemotePath(context.workspacePath)
+      ? "/bin/sh"
+      : await findAgentShell(configuration);
     if (!shell || !context.workspacePath)
       throw new Error("Terminal unavailable");
     if (!input.command?.trim() || input.command.includes("\0"))
@@ -199,6 +113,7 @@ export const activate: PluginModule["activate"] = async (host) => {
     };
   };
   return {
+    ...registered,
     settings: {
       actions: ["detect"],
       async act(action) {
@@ -214,7 +129,7 @@ export const activate: PluginModule["activate"] = async (host) => {
     ui: [
       ...terminalUi(sessions, interactive),
       sessionUi(),
-      ...(panelUi ? [panelUi] : []),
+      ...(registered?.ui ?? []),
     ],
     tools: [
       {

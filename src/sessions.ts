@@ -1,11 +1,11 @@
 import manifest from "../plugin.json";
-import { declaredTool } from "@modera/plugin-sdk";
+import { declaredTool } from "@pal/plugin-sdk";
 import { randomUUID } from "node:crypto";
 import type {
   PluginContext,
   ToolContext,
   ToolDefinition,
-} from "@modera/plugin-sdk";
+} from "@pal/plugin-sdk";
 import { runCommand, type CommandResult } from "./process";
 import { TerminalLogs, type LogWriter } from "./logs";
 

@@ -1,4 +1,4 @@
-import type { PluginContext, ToolContext } from "@modera/plugin-sdk";
+import type { PluginContext, ToolContext } from "@pal/plugin-sdk";
 import { runCommand, type CommandResult } from "./process";
 
 interface Command {

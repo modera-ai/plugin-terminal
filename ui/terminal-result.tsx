@@ -1,6 +1,6 @@
 import React from "react";
-import { AgentTerminal, ToolExecution, parseToolOutput, type AgentTerminalData } from "@modera/ui";
-import type { PluginToolRendererProps } from "@modera/plugin-sdk";
+import { AgentTerminal, ToolExecution, parseToolOutput, type AgentTerminalData } from "@pal/ui";
+import type { PluginToolRendererProps } from "@pal/plugin-sdk";
 export default function TerminalResult({ call, result, state, title, locale, open, onOpenChange, data, busy, error, act }: PluginToolRendererProps) {
   const snapshot = data as AgentTerminalData | undefined;
   const value = snapshot ?? (result ? parseToolOutput(result) as AgentTerminalData : undefined);

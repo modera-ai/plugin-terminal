@@ -1,7 +1,7 @@
 import type {
   PluginUiRequest,
   ToolContext,
-} from "@modera/plugin-sdk";
+} from "@pal/plugin-sdk";
 import type { TerminalLogs } from "./logs";
 
 /** Read-only log paging, bound to the host-resolved tool result. */

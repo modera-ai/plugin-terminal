@@ -1,4 +1,4 @@
-import type { PluginUiContribution } from "@modera/plugin-sdk";
+import type { PluginUiContribution } from "@pal/plugin-sdk";
 import type { TerminalSessions } from "./sessions";
 import type { InteractiveCommands } from "./interactive";
 import { LogCard } from "./log-card";
@@ -6,7 +6,7 @@ import { LogCard } from "./log-card";
 export function terminalUi(sessions: TerminalSessions, interactive: InteractiveCommands): PluginUiContribution[] {
   const logs = new LogCard(sessions.logs);
   return (["tool.approval", "tool.result"] as const).map((slot) => ({
-    id: `modera.terminal.${slot === "tool.approval" ? "approval" : "result"}`,
+    id: `pal.terminal.${slot === "tool.approval" ? "approval" : "result"}`,
     slot,
     hostRenderer: "terminal-result",
     toolNames: ["terminal_execute"],
