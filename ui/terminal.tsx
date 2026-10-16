@@ -82,10 +82,43 @@ export default function TerminalPanel({
     let cursor = 0;
     let stopped = false;
     let exited = false;
-    let fitFrame = 0;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     let sentSize = "";
     let resizingPty = false;
+    let desiredSize: { cols: number; rows: number } | undefined;
+    const flushPtySize = () => {
+      const host = element.current;
+      if (
+        stopped ||
+        exited ||
+        !id ||
+        !host ||
+        resizingPty ||
+        resizeTimer ||
+        !desiredSize ||
+        !usableTerminalLayout(host.clientWidth, host.clientHeight, desiredSize)
+      )
+        return;
+      const { cols, rows } = desiredSize;
+      const size = `${cols}:${rows}`;
+      if (size === sentSize) return;
+      resizingPty = true;
+      let succeeded = false;
+      void commands
+        .execute("pal.terminal.resize", { tabId: id, cols, rows })
+        .then(() => {
+          sentSize = size;
+          succeeded = true;
+        })
+        .catch((e) => {
+          if (!stopped) setError(String(e));
+        })
+        .finally(() => {
+          resizingPty = false;
+          // A newer size is eligible only after its own quiet period ends.
+          if (succeeded) flushPtySize();
+        });
+    };
     const resizePty = () => {
       const host = element.current;
       if (
@@ -96,54 +129,37 @@ export default function TerminalPanel({
         !usableTerminalLayout(host.clientWidth, host.clientHeight, terminal)
       )
         return;
-      const currentSize = `${terminal.cols}:${terminal.rows}`;
-      if (currentSize === sentSize || resizeTimer || resizingPty) return;
-      // Throttle rather than debounce: keep the shell in step during a long drag.
+      if (
+        desiredSize?.cols === terminal.cols &&
+        desiredSize.rows === terminal.rows
+      )
+        return;
+      desiredSize = { cols: terminal.cols, rows: terminal.rows };
+      if (resizeTimer) clearTimeout(resizeTimer);
+      // ConPTY can repaint the entire screen on resize. Like Snow, update the
+      // local terminal immediately but notify the shell only after dragging settles.
       resizeTimer = setTimeout(() => {
         resizeTimer = undefined;
-        const host = element.current;
-        if (
-          stopped ||
-          exited ||
-          !id ||
-          !host ||
-          !usableTerminalLayout(host.clientWidth, host.clientHeight, terminal)
-        )
-          return;
-        const size = `${terminal.cols}:${terminal.rows}`;
-        if (size === sentSize) return;
-        resizingPty = true;
-        let succeeded = false;
-        void commands
-          .execute("pal.terminal.resize", {
-            tabId: id,
-            cols: terminal.cols,
-            rows: terminal.rows,
-          })
-          .then(() => {
-            sentSize = size;
-            succeeded = true;
-          })
-          .catch((e) => {
-            if (!stopped) setError(String(e));
-          })
-          .finally(() => {
-            resizingPty = false;
-            // A drag may have supplied a newer size while the command was pending.
-            if (succeeded) resizePty();
-          });
-      }, 32);
+        flushPtySize();
+      }, 120);
     };
     const fitVisible = () => {
       const host = element.current;
       const dimensions = fit.proposeDimensions();
       if (
         !host ||
-        !usableTerminalLayout(host.clientWidth, host.clientHeight, dimensions) ||
+        !usableTerminalLayout(
+          host.clientWidth,
+          host.clientHeight,
+          dimensions,
+        ) ||
         !dimensions
       )
         return;
-      if (terminal.cols !== dimensions.cols || terminal.rows !== dimensions.rows)
+      if (
+        terminal.cols !== dimensions.cols ||
+        terminal.rows !== dimensions.rows
+      )
         // FitAddon.fit clears the render layer before resizing; the public API
         // already handles resize/reflow without that additional blank frame.
         terminal.resize(dimensions.cols, dimensions.rows);
@@ -212,14 +228,13 @@ export default function TerminalPanel({
         element.current.clientHeight === 0
       )
         return;
-      cancelAnimationFrame(fitFrame);
-      fitFrame = requestAnimationFrame(() => {
-        try {
-          fitVisible();
-        } catch {
-          // Ignore transient layout states while the panel is moving.
-        }
-      });
+      try {
+        // ResizeObserver runs before paint. A second animation-frame hop would
+        // expose a frame with the old terminal geometry inside the resized panel.
+        fitVisible();
+      } catch {
+        // Ignore transient layout states while the panel is moving.
+      }
     });
     const terminalResize = terminal.onResize(resizePty);
     observer.observe(element.current);
@@ -230,7 +245,6 @@ export default function TerminalPanel({
       stopExit();
       // Surface disposal closes the PTY; navigation and renderer cleanup do not.
       observer.disconnect();
-      cancelAnimationFrame(fitFrame);
       if (resizeTimer) clearTimeout(resizeTimer);
       terminalResize.dispose();
       input.dispose();
