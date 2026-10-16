@@ -85,6 +85,7 @@ export default function TerminalPanel({
     let fitFrame = 0;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     let sentSize = "";
+    let resizingPty = false;
     const resizePty = () => {
       const host = element.current;
       if (
@@ -95,46 +96,57 @@ export default function TerminalPanel({
         !usableTerminalLayout(host.clientWidth, host.clientHeight, terminal)
       )
         return;
-      if (resizeTimer) clearTimeout(resizeTimer);
+      const currentSize = `${terminal.cols}:${terminal.rows}`;
+      if (currentSize === sentSize || resizeTimer || resizingPty) return;
+      // Throttle rather than debounce: keep the shell in step during a long drag.
       resizeTimer = setTimeout(() => {
         resizeTimer = undefined;
         const host = element.current;
         if (
           stopped ||
           exited ||
+          !id ||
           !host ||
           !usableTerminalLayout(host.clientWidth, host.clientHeight, terminal)
         )
           return;
         const size = `${terminal.cols}:${terminal.rows}`;
         if (size === sentSize) return;
-        sentSize = size;
+        resizingPty = true;
+        let succeeded = false;
         void commands
           .execute("pal.terminal.resize", {
             tabId: id,
             cols: terminal.cols,
             rows: terminal.rows,
           })
+          .then(() => {
+            sentSize = size;
+            succeeded = true;
+          })
           .catch((e) => {
-            if (!stopped) {
-              sentSize = "";
-              setError(String(e));
-            }
+            if (!stopped) setError(String(e));
+          })
+          .finally(() => {
+            resizingPty = false;
+            // A drag may have supplied a newer size while the command was pending.
+            if (succeeded) resizePty();
           });
-      }, 120);
+      }, 32);
     };
     const fitVisible = () => {
       const host = element.current;
+      const dimensions = fit.proposeDimensions();
       if (
         !host ||
-        !usableTerminalLayout(
-          host.clientWidth,
-          host.clientHeight,
-          fit.proposeDimensions(),
-        )
+        !usableTerminalLayout(host.clientWidth, host.clientHeight, dimensions) ||
+        !dimensions
       )
         return;
-      fit.fit();
+      if (terminal.cols !== dimensions.cols || terminal.rows !== dimensions.rows)
+        // FitAddon.fit clears the render layer before resizing; the public API
+        // already handles resize/reflow without that additional blank frame.
+        terminal.resize(dimensions.cols, dimensions.rows);
       // Also synchronize when xterm's default size already equals the measured size.
       resizePty();
     };
