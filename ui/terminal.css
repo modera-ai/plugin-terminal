@@ -124,15 +124,6 @@ body,
   text-decoration: line-through;
 }
 
-.terminal-binding {
-  flex: 0 0 auto;
-  font: 11px system-ui;
-  color: var(--mu-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-bottom: 6px;
-}
 .terminal-shell {
   display: flex;
   flex-direction: column;

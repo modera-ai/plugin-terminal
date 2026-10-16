@@ -183,7 +183,7 @@ export function registerTerminalPanel(
       };
     },
     async render(request, context) {
-      const title = `${request.locale.startsWith("zh") ? "终端" : "Terminal"} · ${context.projectId ?? "independent"} / ${context.sessionId.slice(0, 8)}`;
+      const title = request.locale.startsWith("zh") ? "终端" : "Terminal";
       const binding = {
         projectId: context.projectId,
         sessionId: context.sessionId,

@@ -9,12 +9,6 @@ import { frontend, usePluginSnapshot } from "@pal/plugin-sdk/react";
 import type { TerminalOutputEvent, TerminalExitEvent } from "@pal/plugin-sdk";
 import { operationErrorDetail } from "@pal/contracts";
 
-interface PanelData {
-  startupError?: string;
-  cwd?: string;
-  config?: Record<string, unknown>;
-}
-
 function TerminalPanel() {
   const element = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -245,15 +239,6 @@ function TerminalPanel() {
   ]);
   return (
     <main className="terminal-shell">
-      <div
-        className="terminal-binding"
-        title={String(
-          (snapshot?.view.data as PanelData | undefined)?.cwd ?? "",
-        )}
-      >
-        {snapshot?.view.title} ·{" "}
-        {String((snapshot?.view.data as PanelData | undefined)?.cwd ?? "")}
-      </div>
       <div ref={element} className="terminal-host" />
       {error && (
         <button
