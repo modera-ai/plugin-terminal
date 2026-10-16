@@ -218,7 +218,7 @@ test("concurrent panel renders share one PTY and actual port close is idempotent
     ]);
     assert.equal(one.data.tabId, two.data.tabId);
     assert.equal(f.ptys.length, 1);
-    assert.match(one.title, /a/);
+    assert.equal(one.title, "终端");
     assert.equal(one.data.binding.sessionId, "session-a");
     const port = f.panel.bindTerminal(request, ctx);
     port.close();

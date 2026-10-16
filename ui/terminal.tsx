@@ -4,16 +4,33 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { frontend, usePluginSnapshot } from "@pal/plugin-sdk/react";
+import React from "react";
+// @ts-expect-error Host renderer bundles CSS as text.
+import css from "./terminal.css";
+// @ts-expect-error Host renderer bundles CSS as text.
+import xtermCss from "@xterm/xterm/css/xterm.css";
+import type { PluginFrontendApi, PluginSurfaceSnapshot } from "@pal/contracts";
 import type { TerminalOutputEvent, TerminalExitEvent } from "@pal/plugin-sdk";
 import { operationErrorDetail } from "@pal/contracts";
 
-function TerminalPanel() {
+export default function TerminalPanel({
+  api,
+  snapshot,
+}: {
+  api: Pick<PluginFrontendApi, "commands"> & {
+    terminal: Pick<
+      PluginFrontendApi["terminal"],
+      "attach" | "onOutput" | "onExit"
+    >;
+  };
+  snapshot: PluginSurfaceSnapshot;
+}) {
   const element = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const [error, setError] = useState("");
-  const { snapshot } = usePluginSnapshot();
+  const [retry, setRetry] = useState(0);
+  const themeRef = useRef(snapshot.theme);
+  themeRef.current = snapshot.theme;
   const startupError = (
     snapshot?.view.data as { startupError?: string } | undefined
   )?.startupError;
@@ -23,13 +40,12 @@ function TerminalPanel() {
   useEffect(() => {
     if (!element.current || !snapshot) return;
     const readTheme = () => {
-      const css = getComputedStyle(document.documentElement);
+      const theme = themeRef.current;
       return {
-        background: css.getPropertyValue("--mu-page").trim() || "#101318",
-        foreground: css.getPropertyValue("--mu-ink").trim() || "#e6e9ef",
-        cursor: css.getPropertyValue("--mu-accent").trim() || "#e6e9ef",
-        selectionBackground:
-          css.getPropertyValue("--mu-soft").trim() || "#ffffff33",
+        background: theme?.colors?.page || "#101318",
+        foreground: theme?.colors?.ink || "#e6e9ef",
+        cursor: theme?.accent || "#e6e9ef",
+        selectionBackground: theme?.colors?.soft || "#ffffff33",
       };
     };
     const terminal = new Terminal({
@@ -55,18 +71,13 @@ function TerminalPanel() {
       }
     }
     terminal.loadAddon(
-      new WebLinksAddon(
-        (_event, uri) =>
-          void frontend()
-            .webPreview.command({ type: "navigate", url: uri })
-            .catch(() => {}),
-      ),
+      new WebLinksAddon((_event, uri) => {
+        window.open(uri, "_blank", "noopener,noreferrer");
+      }),
     );
-    const api = frontend().terminal;
-    const commands = frontend().commands;
-    const stopTheme = frontend().onThemeChanged(() => {
-      terminal.options.theme = readTheme();
-    });
+    const stream = api.terminal;
+    const commands = api.commands;
+    setError("");
     let id = "";
     let cursor = 0;
     let stopped = false;
@@ -152,10 +163,12 @@ function TerminalPanel() {
       exited = true;
       terminal.writeln(`\r\n[process exited with code ${event.exitCode}]`);
     };
-    const stopOutput = api.onOutput(apply);
-    const stopExit = api.onExit(exit);
+    const stopOutput = stream.onOutput(apply);
+    const stopExit = stream.onExit(exit);
     // Subscribe before replay to avoid losing output while attach is resolving.
-    void (startupError ? Promise.reject(new Error(startupError)) : api.attach())
+    void (
+      startupError ? Promise.reject(new Error(startupError)) : stream.attach()
+    )
       .then((info) => {
         if (stopped) return;
         id = info.id;
@@ -201,7 +214,6 @@ function TerminalPanel() {
     terminal.focus();
     return () => {
       stopped = true;
-      stopTheme();
       stopOutput();
       stopExit();
       // Surface disposal closes the PTY; navigation and renderer cleanup do not.
@@ -213,7 +225,16 @@ function TerminalPanel() {
       terminal.dispose();
       if (terminalRef.current === terminal) terminalRef.current = null;
     };
-  }, [Boolean(snapshot), startupError]);
+  }, [api, startupError, retry]);
+  useEffect(() => {
+    if (terminalRef.current)
+      terminalRef.current.options.theme = {
+        background: snapshot.theme?.colors?.page || "#101318",
+        foreground: snapshot.theme?.colors?.ink || "#e6e9ef",
+        cursor: snapshot.theme?.accent || "#e6e9ef",
+        selectionBackground: snapshot.theme?.colors?.soft || "#ffffff33",
+      };
+  }, [snapshot.theme]);
   useEffect(() => {
     if (error)
       terminalRef.current?.writeln(
@@ -238,12 +259,24 @@ function TerminalPanel() {
     values.scrollback,
   ]);
   return (
-    <main className="terminal-shell">
+    <main
+      className="terminal-shell"
+      style={
+        {
+          "--mu-page": snapshot.theme?.colors?.page,
+          "--mu-ink": snapshot.theme?.colors?.ink,
+          "--mu-line": snapshot.theme?.colors?.line,
+        } as React.CSSProperties
+      }
+    >
+      <style>
+        {xtermCss + css.replace(/html,\s*body,\s*#root,/g, ":host,")}
+      </style>
       <div ref={element} className="terminal-host" />
       {error && (
         <button
           className="terminal-retry"
-          onClick={() => window.location.reload()}
+          onClick={() => setRetry((value) => value + 1)}
         >
           {snapshot?.locale.startsWith("zh") ? "重试" : "Retry"}
         </button>
@@ -251,4 +284,3 @@ function TerminalPanel() {
     </main>
   );
 }
-createRoot(document.getElementById("root")!).render(<TerminalPanel />);

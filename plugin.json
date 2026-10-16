@@ -11,6 +11,10 @@
   "icon": "terminal",
   "main": "dist/index.cjs",
   "hostRenderers": {
+    "terminal": {
+      "root": "dist/ui",
+      "entry": "terminal.js"
+    },
     "tool-presentation": {
       "root": "dist/ui",
       "entry": "tool-presentation.js"
@@ -100,10 +104,6 @@
     "settings": {
       "root": "dist/ui",
       "entry": "settings.html"
-    },
-    "terminal": {
-      "root": "dist/ui",
-      "entry": "terminal.html"
     }
   },
   "agentGuidance": "Use the terminal for builds, tests and commands that genuinely require a shell. Use workspace tools for ordinary file edits; use managed background sessions for servers and watchers.",
@@ -525,7 +525,8 @@
     "plugin.commands.callable": 1,
     "plugin.declarations": 1,
     "frontend.commands.execute": 1,
-    "frontend.terminal.lifecycle": 1,
+    "plugin.hostPanel": 1,
+    "plugin.hostPanel.terminal": 1,
     "plugin.slots": 1,
     "plugin.process.commands": 1,
     "context.commands": 1,

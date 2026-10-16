@@ -58,11 +58,9 @@ export function registerTerminalPanel(
           case "pal.terminal.list":
             return control.list(context);
           case "pal.terminal.input":
-            return control.writeRaw(
-              String(value.tabId),
-              String(value.data),
-              context,
-            ).then(() => ({ ok: true }));
+            return control
+              .writeRaw(String(value.tabId), String(value.data), context)
+              .then(() => ({ ok: true }));
           default:
             throw new Error("Unknown terminal command");
         }
@@ -147,7 +145,7 @@ export function registerTerminalPanel(
     id: "pal.terminal.panel",
     slot: "ui.panel",
     scope: "conversation",
-    frontend: "terminal",
+    hostRenderer: "terminal",
     nativeCapabilities: ["terminal"],
     requiredPermissions: ["process.spawn"],
     // Temporary action transport: 65536 characters may expand sixfold in JSON.
