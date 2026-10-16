@@ -1,6 +1,10 @@
 import manifest from "../plugin.json";
 import type { PluginRegistration } from "@pal/plugin-sdk";
-import type { PluginCommandDeclaration } from "@pal/contracts";
+import {
+  localizeMetadata,
+  type PluginCommandDeclaration,
+  type ToolDefinition,
+} from "@pal/contracts";
 import type { TerminalSessions } from "./sessions";
 import type { InteractiveCommands } from "./interactive";
 
@@ -77,8 +81,16 @@ export function registerTerminalPresentation(
         const current = data.sessionId
           ? sessions.snapshot(data.sessionId, context)
           : undefined;
+        const tool = manifest.tools.find(
+          (item) => item.id === request.tool!.name,
+        );
         return {
-          title: String(data.description ?? value?.description ?? "Terminal"),
+          title: tool
+            ? localizeMetadata(
+                tool as ToolDefinition,
+                request.locale ?? "zh-CN",
+              ).title
+            : request.tool.name,
           live:
             (!!pending && data.status === "running") ||
             (!!current && !current.done),

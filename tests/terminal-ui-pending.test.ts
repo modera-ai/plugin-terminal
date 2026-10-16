@@ -52,6 +52,7 @@ const request = (interactive: boolean): PluginUiRequest =>
 it("renders a pending ordinary command without reading an interactive session", async () => {
   const { ui, snapshot } = await fixture();
   const view = await ui.render(request(false), context);
+  expect(view.title).toBe("执行终端命令");
   expect(snapshot).not.toHaveBeenCalled();
   expect(view.live).toBe(true);
   expect(view.data).toMatchObject({
@@ -61,6 +62,27 @@ it("renders a pending ordinary command without reading an interactive session", 
     canStop: false,
   });
 });
+
+it.each(["logs", "list", "read"])(
+  "uses the declared tool label for session %s instead of the generic fallback",
+  async (action) => {
+    const { ui } = await fixture();
+    const input = { action };
+    const toolRequest = {
+      locale: "zh-CN",
+      toolCallId: "c",
+      tool: {
+        name: "terminal_session",
+        input,
+        result: JSON.stringify({ items: [] }),
+      },
+    } as PluginUiRequest;
+    expect((await ui.render(toolRequest, context)).title).toBe("管理终端任务");
+    expect(
+      (await ui.render({ ...toolRequest, locale: "en" }, context)).title,
+    ).toBe("Manage terminal tasks");
+  },
+);
 it("renders an interactive command before process registration without an error or active controls", async () => {
   const { ui, snapshot } = await fixture();
   const view = await ui.render(request(true), context);
