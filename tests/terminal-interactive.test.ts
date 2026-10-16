@@ -1,3 +1,4 @@
+import { processHost } from "./helpers/process-host.mjs";
 import { it, expect } from "vitest";
 import { InteractiveCommands } from "../src/interactive";
 import { findShell } from "../src/shell";
@@ -5,6 +6,7 @@ import { findShell } from "../src/shell";
 it("one pending process reads three user inputs then returns once", async () => {
   const controller = new AbortController();
   const commands = new InteractiveCommands({
+    ...processHost(() => controller.signal),
     pluginId: "test",
     storagePath: "",
     grantedPermissions: new Set(["process.spawn"]),
@@ -61,6 +63,7 @@ it.each(["stop", "cancel", "timeout"])(
   async (action) => {
     const controller = new AbortController();
     const commands = new InteractiveCommands({
+      ...processHost(() => controller.signal),
       pluginId: "test",
       storagePath: "",
       grantedPermissions: new Set(["process.spawn"]),

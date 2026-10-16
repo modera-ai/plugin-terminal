@@ -1,3 +1,4 @@
+import { processHost } from "./helpers/process-host.mjs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { TerminalSessions } from "../src/sessions";
 import { findShell } from "../src/shell";
@@ -90,6 +91,7 @@ it("background execution survives unavailable log storage and output above the l
   try {
     await writeFile(join(root, "logs"), "blocked");
     const sessions = new TerminalSessions({
+      ...processHost(() => controller.signal),
       pluginId: "pal.terminal",
       storagePath: root,
       signal: controller.signal,

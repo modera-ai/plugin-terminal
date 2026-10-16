@@ -1,3 +1,4 @@
+import { processHost } from "./helpers/process-host.mjs";
 import { expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,6 +13,7 @@ it.each(["user", "agent"] as const)(
     const controller = new AbortController();
     const tasks: Promise<unknown>[] = [];
     const sessions = new TerminalSessions({
+      ...processHost(() => controller.signal),
       pluginId: "test",
       storagePath: root,
       grantedPermissions: new Set(["process.spawn"]),

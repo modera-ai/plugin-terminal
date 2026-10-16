@@ -66,7 +66,9 @@ export class TerminalSessions {
         this.jobs.delete(id);
     if (this.jobs.size >= 8) throw new Error("Terminal session limit reached");
     let finish!: () => void;
-    const completion = new Promise<void>((resolve) => { finish = resolve; });
+    const completion = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     const job: Job = {
       completion,
       finish,
@@ -94,6 +96,10 @@ export class TerminalSessions {
         { ...context, label: command },
         async (signal) => {
           try {
+            const processCommands = this.host.commands?.({
+              ...context,
+              signal: AbortSignal.any([signal, job.controller.signal]),
+            });
             job.result = await runCommand(
               shell,
               command,
@@ -112,11 +118,18 @@ export class TerminalSessions {
               },
               undefined,
               Infinity, // Log capacity is not a process execution budget.
+              processCommands,
             );
-            if (job.stoppedBy && job.result.status === "cancelled") job.result = {
-              ...job.result, reason: job.stoppedBy, stoppedBy: job.stoppedBy,
-              message: job.stoppedBy === "user" ? "The user manually stopped this command. Do not automatically retry it." : "The agent stopped this command.",
-            };
+            if (job.stoppedBy && job.result.status === "cancelled")
+              job.result = {
+                ...job.result,
+                reason: job.stoppedBy,
+                stoppedBy: job.stoppedBy,
+                message:
+                  job.stoppedBy === "user"
+                    ? "The user manually stopped this command. Do not automatically retry it."
+                    : "The agent stopped this command.",
+              };
           } catch (error) {
             job.error = String(error);
           } finally {
@@ -154,12 +167,22 @@ export class TerminalSessions {
   }
   async wait(id: string, context: ToolContext, yieldTimeMs: number) {
     const job = this.jobs.get(id);
-    if (!job || job.owner !== context.sessionId || job.project !== context.projectId)
+    if (
+      !job ||
+      job.owner !== context.sessionId ||
+      job.project !== context.projectId
+    )
       throw new Error("Terminal session unavailable");
     let timer: ReturnType<typeof setTimeout> | undefined;
     let wake!: () => void;
-    const wait = new Promise<void>((resolve) => { wake = resolve; timer = setTimeout(resolve, yieldTimeMs); });
-    const abort = () => { job.controller.abort(); wake(); };
+    const wait = new Promise<void>((resolve) => {
+      wake = resolve;
+      timer = setTimeout(resolve, yieldTimeMs);
+    });
+    const abort = () => {
+      job.controller.abort();
+      wake();
+    };
     context.signal.addEventListener("abort", abort, { once: true });
     try {
       if (context.signal.aborted) abort();
@@ -171,7 +194,11 @@ export class TerminalSessions {
       context.signal.removeEventListener("abort", abort);
     }
   }
-  execute(raw: unknown, context: ToolContext, stopSource: "user" | "agent" = "agent") {
+  execute(
+    raw: unknown,
+    context: ToolContext,
+    stopSource: "user" | "agent" = "agent",
+  ) {
     this.host.signal.throwIfAborted();
     const input = raw as {
       action: string;
@@ -201,7 +228,8 @@ export class TerminalSessions {
     const job = this.jobs.get(input.sessionId ?? "");
     if (!job || !visible(job)) throw new Error("Terminal session unavailable");
     if (input.action === "stop") {
-      if (!job.done && !job.controller.signal.aborted) job.stoppedBy = stopSource;
+      if (!job.done && !job.controller.signal.aborted)
+        job.stoppedBy = stopSource;
       job.controller.abort();
       return {
         ...summary(job),

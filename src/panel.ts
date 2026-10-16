@@ -58,8 +58,11 @@ export function registerTerminalPanel(
           case "pal.terminal.list":
             return control.list(context);
           case "pal.terminal.input":
-            control.writeRaw(String(value.tabId), String(value.data), context);
-            return { ok: true };
+            return control.writeRaw(
+              String(value.tabId),
+              String(value.data),
+              context,
+            ).then(() => ({ ok: true }));
           default:
             throw new Error("Unknown terminal command");
         }

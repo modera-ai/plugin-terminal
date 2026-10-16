@@ -1,13 +1,9 @@
 import { isRemotePath } from "@pal/plugin-sdk/workspace-path";
-import {
-  remoteTransport,
-  type WorkspacePty,
-} from "@pal/plugin-sdk/workspace-transport";
 import { access } from "@pal/plugin-sdk/workspace-fs";
 import { constants } from "node:fs";
 import { basename } from "@pal/plugin-sdk/workspace-path";
 import { randomUUID } from "node:crypto";
-import * as pty from "node-pty";
+import { createHostPty, type HostPty } from "./host-pty";
 import type {
   PluginContext,
   ToolContext,
@@ -15,11 +11,7 @@ import type {
   TerminalOutputEvent,
   TerminalExitEvent,
 } from "@pal/plugin-sdk";
-import {
-  childEnvironment,
-  terminalConfiguration,
-  workingDirectory,
-} from "./shell";
+import { terminalConfiguration, workingDirectory } from "./shell";
 import { detectTerminalOptions } from "./terminal-detection";
 
 const MAX_BUFFER = 1_000_000;
@@ -64,7 +56,7 @@ interface ControlledTerminal {
   cleanup: () => void;
   panelResource?: string;
   projectId: string | undefined;
-  process: pty.IPty | WorkspacePty;
+  process: HostPty;
   title: string;
   shell: string;
   cwd: string;
@@ -199,22 +191,14 @@ export class TerminalControl {
           ? ["--login"]
           : []
         : ["-l"];
-    const env = Object.fromEntries(
-      Object.entries(childEnvironment()).filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string",
-      ),
-    );
     check();
-    const processHandle = isRemotePath(cwd)
-      ? await remoteTransport().pty(cwd, cols, rows)
-      : pty.spawn(shell, args, {
-          name: "xterm-256color",
-          cols,
-          rows,
-          ...(!isWsl ? { cwd } : {}),
-          env: { ...env, TERM: "xterm-256color", COLORTERM: "truecolor" },
-          useConpty: process.platform === "win32",
-        });
+    const processHandle = await createHostPty(this.host, context, {
+      executable: shell,
+      args,
+      cwd,
+      cols,
+      rows,
+    });
     try {
       check();
       if (
@@ -314,7 +298,7 @@ export class TerminalControl {
       context,
     );
   }
-  send(
+  async send(
     input: { tabId?: string; input?: string; keys?: string[] },
     context: ToolContext,
   ) {
@@ -330,7 +314,10 @@ export class TerminalControl {
     if (keyMode && input.keys!.length > 64)
       throw new Error("keys accepts at most 64 entries");
     if (textMode && !/[\r\n]$/.test(data)) data += "\r";
-    item.process.write(data);
+    await this.host.commands!(context).execute("process.write", {
+      processId: item.process.processId,
+      data,
+    });
     this.focused.set(this.scope(context), item.id);
     return { ok: true, tabId: item.id };
   }
@@ -351,10 +338,13 @@ export class TerminalControl {
       revision: item.revision,
     };
   }
-  writeRaw(tabId: string, data: string, context: ToolContext) {
+  async writeRaw(tabId: string, data: string, context: ToolContext) {
     const item = this.owned(context, tabId);
     if (!item.alive) throw new Error("Terminal process has exited");
-    item.process.write(data);
+    await this.host.commands!(context).execute("process.write", {
+      processId: item.process.processId,
+      data,
+    });
   }
   port(tabId: string, context: ToolContext): PluginTerminalPort {
     const item = this.owned(context, tabId);
@@ -375,9 +365,15 @@ export class TerminalControl {
           exitCode: current.exitCode,
         };
       },
-      write: (data) => this.writeRaw(tabId, data, context),
+      write: (data) => {
+        this.owned(context, tabId);
+        item.process.write(data);
+      },
       resize: (cols, rows) => {
-        this.resize({ tabId, cols, rows }, context);
+        this.owned(context, tabId);
+        item.process.resize(cols, rows);
+        item.cols = cols;
+        item.rows = rows;
       },
       subscribe: (output, exit) => {
         this.owned(context, tabId);
@@ -389,7 +385,7 @@ export class TerminalControl {
       },
     };
   }
-  resize(
+  async resize(
     input: { tabId?: string; cols: number; rows: number },
     context: ToolContext,
   ) {
@@ -398,7 +394,11 @@ export class TerminalControl {
     const rows = Math.max(1, Math.min(300, Math.floor(input.rows)));
     if (!Number.isFinite(cols) || !Number.isFinite(rows))
       throw new Error("Invalid terminal dimensions");
-    item.process.resize(cols, rows);
+    await this.host.commands!(context).execute("process.resize", {
+      processId: item.process.processId,
+      cols,
+      rows,
+    });
     item.cols = cols;
     item.rows = rows;
     return this.metadata(item, context);

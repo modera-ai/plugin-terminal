@@ -597,7 +597,10 @@
     "plugin.declarations": 1,
     "frontend.commands.execute": 1,
     "frontend.terminal.lifecycle": 1,
-    "plugin.slots": 1
+    "plugin.slots": 1,
+    "plugin.process.commands": 1,
+    "context.commands": 1,
+    "context.processPort": 1
   },
   "declarations": {
     "provides": {
@@ -924,6 +927,32 @@
             "pal.terminal.presentation.read",
             "pal.terminal.presentation.act"
           ]
+        }
+      ],
+      "commands": [
+        {
+          "id": "process.start",
+          "reason": "使用宿主进程资源与生命周期"
+        },
+        {
+          "id": "process.read",
+          "reason": "使用宿主进程资源与生命周期"
+        },
+        {
+          "id": "process.write",
+          "reason": "使用宿主进程资源与生命周期"
+        },
+        {
+          "id": "process.resize",
+          "reason": "使用宿主进程资源与生命周期"
+        },
+        {
+          "id": "process.stop",
+          "reason": "使用宿主进程资源与生命周期"
+        },
+        {
+          "id": "process.list",
+          "reason": "使用宿主进程资源与生命周期"
         }
       ]
     }

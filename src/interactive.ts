@@ -137,6 +137,7 @@ export class InteractiveCommands {
     this.commands.set(key, entry);
     this.host.invalidateUi?.(context.sessionId);
     try {
+      const processCommands = this.host.commands?.(context);
       const result = await runCommand(
         shell,
         command,
@@ -159,10 +160,19 @@ export class InteractiveCommands {
           entry.write = write;
           this.changed(entry);
         },
+        4 * 1024 * 1024,
+        processCommands,
       );
-      entry.result = entry.stoppedByUser && result.status === "cancelled"
-        ? { ...result, reason: "user", stoppedBy: "user", message: "The user manually stopped this command. Do not automatically retry it." }
-        : result;
+      entry.result =
+        entry.stoppedByUser && result.status === "cancelled"
+          ? {
+              ...result,
+              reason: "user",
+              stoppedBy: "user",
+              message:
+                "The user manually stopped this command. Do not automatically retry it.",
+            }
+          : result;
       return { ...entry.result, description, interactive: true };
     } finally {
       clearTimeout(entry.timer);

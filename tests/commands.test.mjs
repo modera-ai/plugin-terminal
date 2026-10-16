@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { processHost } from "./helpers/process-host.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
@@ -42,6 +43,11 @@ async function fixture(work, create) {
     if (!scopes.has(id)) scopes.set(id, new AbortController());
     return scopes.get(id);
   };
+  const createPty = async () => {
+    const p = new FakePty();
+    ptys.push(p);
+    return create ? create(p) : p;
+  };
   const uninstall = installRemoteWorkspaceTransport({
     file: async (name, args) =>
       name === "realpath" ? args[0] : { isDirectory: () => true },
@@ -55,6 +61,10 @@ async function fixture(work, create) {
     },
   });
   const host = {
+    ...processHost(
+      (id) => AbortSignal.any([lifetime.signal, scope(id).signal]),
+      createPty,
+    ),
     pluginId: "pal.terminal",
     resourcePath: "resources",
     storagePath: "storage",

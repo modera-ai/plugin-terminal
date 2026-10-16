@@ -1,12 +1,41 @@
+import { processHost } from "./helpers/process-host.mjs";
 import { mkdtemp, readFile, rm, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
 import { activate } from "../src";
 import { findShell, childEnvironment } from "../src/shell";
-import { runCommand } from "../src/process";
+import { runCommand as executeCommand } from "../src/process";
 
 import { terminalFixture, nodeCommand } from "./helpers/terminal-fixture";
+
+function runCommand(
+  shell: string,
+  command: string,
+  cwd: string,
+  timeout: number,
+  signal: AbortSignal,
+) {
+  const host = processHost(() => signal);
+  return executeCommand(
+    shell,
+    command,
+    cwd,
+    timeout,
+    signal,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    host.commands!({
+      sessionId: "s",
+      projectId: "p",
+      runId: "r",
+      workspacePath: cwd,
+      signal,
+    }),
+  );
+}
 
 async function fixture(work: (root: string, shell: string) => Promise<void>) {
   const root = await realpath(

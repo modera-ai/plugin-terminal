@@ -1,4 +1,5 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { processHost } from "./helpers/process-host.mjs";
+import { beforeEach, expect, it } from "vitest";
 
 const spawned: FakePty[] = [];
 class FakePty {
@@ -26,14 +27,6 @@ class FakePty {
     return { dispose() {} };
   }
 }
-vi.mock("node-pty", () => ({
-  spawn: () => {
-    const value = new FakePty();
-    spawned.push(value);
-    return value;
-  },
-}));
-
 import { TerminalControl } from "../src/control";
 
 beforeEach(() => spawned.splice(0));
@@ -42,6 +35,14 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
   const controller = new AbortController();
   const opened: { id: string; resource?: string }[] = [];
   const host = {
+    ...processHost(
+      () => controller.signal,
+      () => {
+        const p = new FakePty();
+        spawned.push(p);
+        return p;
+      },
+    ),
     pluginId: "pal.terminal",
     storagePath: "",
     grantedPermissions: new Set(["process.spawn"]),
@@ -75,14 +76,14 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
   const first = await control.open({}, context);
   expect(opened[0]?.id).toBe("pal.terminal.panel");
   expect(JSON.parse(opened[0]?.resource || "{}").tabId).toBe(first.tabId);
-  control.send({ input: "echo hello" }, context);
+  await control.send({ input: "echo hello" }, context);
   expect(spawned[0]?.writes.at(-1)).toBe("echo hello\r");
-  control.send({ tabId: first.tabId, keys: ["up", "enter"] }, context);
+  await control.send({ tabId: first.tabId, keys: ["up", "enter"] }, context);
   expect(spawned[0]?.writes.at(-1)).toBe("\x1b[A\r");
   spawned[0]?.data?.("hello\r\n");
   const read = control.read({ tabId: first.tabId, cursor: 0 }, context);
   expect(read.text).toContain("hello");
-  control.resize({ tabId: first.tabId, cols: 120, rows: 40 }, context);
+  await control.resize({ tabId: first.tabId, cols: 120, rows: 40 }, context);
   expect([spawned[0]?.cols, spawned[0]?.rows]).toEqual([120, 40]);
   const waited = await control.wait(
     { tabId: first.tabId, timeoutMs: 1000, idleMs: 100 },
@@ -103,6 +104,14 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
 it("rejects cross-conversation access and ambiguous send input", async () => {
   const controller = new AbortController();
   const host = {
+    ...processHost(
+      () => controller.signal,
+      () => {
+        const p = new FakePty();
+        spawned.push(p);
+        return p;
+      },
+    ),
     pluginId: "pal.terminal",
     storagePath: "",
     grantedPermissions: new Set(["process.spawn"]),
@@ -131,11 +140,11 @@ it("rejects cross-conversation access and ambiguous send input", async () => {
   expect(() =>
     control.read({ tabId: terminal.tabId }, { ...context, sessionId: "b" }),
   ).toThrow("unavailable");
-  expect(() =>
+  await expect(
     control.send(
       { tabId: terminal.tabId, input: "x", keys: ["enter"] },
       context,
     ),
-  ).toThrow("exactly one");
+  ).rejects.toThrow("exactly one");
   controller.abort();
 });

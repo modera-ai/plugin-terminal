@@ -1,3 +1,4 @@
+import { processHost } from "./process-host.mjs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -17,6 +18,7 @@ export async function terminalFixture() {
   let scope = new AbortController();
   const tasks = new Set<Promise<void>>();
   const host: PluginContext = {
+    ...processHost(() => AbortSignal.any([lifetime.signal, scope.signal])),
     pluginId: manifest.id,
     storagePath: root,
     grantedPermissions: new Set(manifest.permissions),
