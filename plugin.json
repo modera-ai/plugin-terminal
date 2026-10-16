@@ -1,9 +1,6 @@
 {
   "apiVersion": 1,
-  "workspaceTargets": [
-    "local",
-    "ssh"
-  ],
+  "workspaceTargets": ["local", "ssh"],
   "activationScope": "scoped",
   "id": "pal.terminal",
   "name": "Terminal",
@@ -19,23 +16,15 @@
       "entry": "tool-presentation.js"
     }
   },
-  "permissions": [
-    "storage.read",
-    "storage.write"
-  ],
-  "extensions": [
-    "settings"
-  ],
+  "permissions": ["storage.read", "storage.write"],
+  "extensions": ["settings"],
   "configScope": "global",
   "config": {
     "agentEnvironment": {
       "type": "enum",
       "title": "Agent environment",
       "default": "windows-native",
-      "options": [
-        "windows-native",
-        "wsl"
-      ],
+      "options": ["windows-native", "wsl"],
       "locales": {
         "zh-CN": {
           "title": "智能体环境"
@@ -121,13 +110,13 @@
   "tools": [
     {
       "id": "terminal_execute",
-      "description": "Execute one command in the project shell (Windows PowerShell; POSIX bash/sh). Supply a description in the user's language. For commands requiring USER input (Read-Host, prompts, confirmations), set interactive=true: ONE tool call stays pending while the user types directly in its card; returns only when the process exits or is stopped. Do not open/send/wait or poll to orchestrate user input. Interactive timeout defaults to 30 minutes. interactive and background cannot be combined. Ordinary commands wait up to yieldTimeMs (default 10000ms), then return a managed sessionId if still running. Waiting does not kill the process. Reuse terminal_session read/list/stop; do not restart a running command. Process timeout is optional. For dev servers/watchers use background=true to return immediately. Host approval required. Bounded output. User OS privileges, NOT sandboxed.",
+      "description": "Execute one command in the project shell (Windows PowerShell; POSIX bash/sh). Supply a brief description in the user's language. By default this ONE tool call waits until the command finishes, fails, is cancelled or times out; do NOT poll terminal_session for foreground execution. timeout defaults to 1800000ms (30 minutes) for foreground commands. For long-running servers/watchers explicitly set background=true: returns a managed sessionId immediately; use terminal_session to inspect or stop that background job. For USER input set interactive=true: the same call stays pending while the user types in its card. interactive and background cannot be combined. Background timeout is optional. Host approval required. Bounded model output. User OS privileges, NOT sandboxed.",
       "locales": {
         "en": {
           "title": "Execute terminal command"
         },
         "zh-CN": {
-          "description": "在项目目录执行命令。interactive=true 时一次调用等待用户在卡片输入，退出后返回；background=true 启动后台任务，二者不可同时开启。不是安全沙箱。"
+          "description": "在项目目录执行命令，默认同一次工具调用等到结束（默认最长30分钟）；background=true才立即返回作业ID。需要用户输入时用interactive=true，不能与background同时使用。不是安全沙箱。"
         }
       },
       "inputSchema": {
@@ -136,7 +125,8 @@
           "description": {
             "maxLength": 300,
             "minLength": 1,
-            "type": "string"
+            "type": "string",
+            "description": "Briefly explain this command's purpose in the user's language. Shown on its execution card."
           },
           "background": {
             "description": "Return a managed job ID for long commands; not detached from plugin lifecycle.",
@@ -152,7 +142,7 @@
             "type": "boolean"
           },
           "timeout": {
-            "description": "Optional process deadline in milliseconds. Omit for no deadline (interactive defaults to 30 minutes).",
+            "description": "Process deadline in milliseconds. Foreground/interactive defaults to 1800000 (30 minutes); background has no deadline when omitted.",
             "maximum": 1800000,
             "minimum": 100,
             "type": "integer"
@@ -162,18 +152,9 @@
             "maxLength": 1000,
             "minLength": 1,
             "type": "string"
-          },
-          "yieldTimeMs": {
-            "description": "How long to wait for ordinary command completion before returning a running session ID; default 10000. Does not terminate the process.",
-            "maximum": 30000,
-            "minimum": 0,
-            "type": "integer"
           }
         },
-        "required": [
-          "command",
-          "description"
-        ],
+        "required": ["command", "description"],
         "type": "object"
       },
       "presentation": {
@@ -193,15 +174,10 @@
             "path": "durationMs"
           }
         ],
-        "targets": [
-          "description",
-          "command"
-        ],
+        "targets": ["description", "command"],
         "tone": "slate"
       },
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "title": "执行终端命令"
     },
     {
@@ -219,13 +195,7 @@
         "additionalProperties": false,
         "properties": {
           "action": {
-            "enum": [
-              "list",
-              "read",
-              "stop",
-              "logs",
-              "read_log"
-            ]
+            "enum": ["list", "read", "stop", "logs", "read_log"]
           },
           "cursor": {
             "minimum": 0,
@@ -236,9 +206,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "action"
-        ],
+        "required": ["action"],
         "type": "object"
       },
       "presentation": {
@@ -258,15 +226,10 @@
             "path": "stdout"
           }
         ],
-        "targets": [
-          "action",
-          "sessionId"
-        ],
+        "targets": ["action", "sessionId"],
         "tone": "slate"
       },
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "title": "管理终端任务"
     },
     {
@@ -278,9 +241,7 @@
       },
       "title": "打开交互终端",
       "description": "Open a persistent interactive PTY in the right panel. Returns tabId. cwd defaults to the project root.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -311,9 +272,7 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "cwd"
-        ]
+        "targets": ["cwd"]
       }
     },
     {
@@ -324,10 +283,8 @@
         }
       },
       "title": "向终端发送输入",
-      "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter, arrows, control keys and F1-F12.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter, arrows, control keys and F1-F12. Optional description explains complex input on its card; not required for simple answers or key presses.",
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -347,18 +304,20 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Optional brief explanation in the user's language, useful for complex commands or multiple commands. Omit for simple answers or key presses."
           }
         },
         "oneOf": [
           {
-            "required": [
-              "input"
-            ]
+            "required": ["input"]
           },
           {
-            "required": [
-              "keys"
-            ]
+            "required": ["keys"]
           }
         ]
       },
@@ -366,10 +325,7 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId",
-          "input"
-        ]
+        "targets": ["description"]
       }
     },
     {
@@ -381,9 +337,7 @@
       },
       "title": "读取终端",
       "description": "Read incremental text and raw terminal output from a tab. Reuse nextCursor; waitMs optionally waits for more output first.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -406,9 +360,7 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
+        "targets": ["tabId"]
       }
     },
     {
@@ -420,9 +372,7 @@
       },
       "title": "调整终端大小",
       "description": "Resize the PTY dimensions for a terminal tab.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -441,18 +391,13 @@
             "maximum": 300
           }
         },
-        "required": [
-          "cols",
-          "rows"
-        ]
+        "required": ["cols", "rows"]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
+        "targets": ["tabId"]
       }
     },
     {
@@ -464,9 +409,7 @@
       },
       "title": "等待终端空闲",
       "description": "Wait until a terminal has no new output for idleMs, then return only text not delivered by an earlier wait.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -490,9 +433,7 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
+        "targets": ["tabId"]
       }
     },
     {
@@ -504,9 +445,7 @@
       },
       "title": "关闭终端",
       "description": "Close a terminal tab and terminate its PTY.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -520,9 +459,7 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
+        "targets": ["tabId"]
       }
     },
     {
@@ -534,9 +471,7 @@
       },
       "title": "聚焦终端",
       "description": "Bring a persistent terminal tab to the foreground in the right panel.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -546,17 +481,13 @@
             "minLength": 1
           }
         },
-        "required": [
-          "tabId"
-        ]
+        "required": ["tabId"]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
+        "targets": ["tabId"]
       }
     },
     {
@@ -568,9 +499,7 @@
       },
       "title": "列出终端",
       "description": "List persistent terminal tabs in this conversation with IDs, directories and active state.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -610,9 +539,7 @@
           "title": "Terminal: open",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -642,9 +569,7 @@
           "title": "Terminal: send",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -672,9 +597,7 @@
           "title": "Terminal: read",
           "visibility": "public",
           "readOnly": true,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -695,9 +618,7 @@
           "title": "Terminal: resize",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -716,10 +637,7 @@
                 "maximum": 300
               }
             },
-            "required": [
-              "cols",
-              "rows"
-            ]
+            "required": ["cols", "rows"]
           }
         },
         {
@@ -727,9 +645,7 @@
           "title": "Terminal: wait",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -756,9 +672,7 @@
           "title": "Terminal: close",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -775,9 +689,7 @@
           "title": "Terminal: focus",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -786,9 +698,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "tabId"
-            ]
+            "required": ["tabId"]
           }
         },
         {
@@ -796,9 +706,7 @@
           "title": "Terminal: list",
           "visibility": "public",
           "readOnly": true,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -811,9 +719,7 @@
           "title": "Terminal: input",
           "visibility": "private",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -826,10 +732,7 @@
                 "maxLength": 65536
               }
             },
-            "required": [
-              "tabId",
-              "data"
-            ]
+            "required": ["tabId", "data"]
           }
         },
         {
@@ -837,9 +740,7 @@
           "title": "终端展示read",
           "visibility": "private",
           "readOnly": true,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "properties": {},
@@ -851,27 +752,20 @@
           "title": "终端展示act",
           "visibility": "private",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["process.spawn"],
           "inputSchema": {
             "type": "object",
             "properties": {
               "action": {
                 "type": "string",
-                "enum": [
-                  "stop",
-                  "input"
-                ]
+                "enum": ["stop", "input"]
               },
               "value": {
                 "type": "string",
                 "maxLength": 4000
               }
             },
-            "required": [
-              "action"
-            ],
+            "required": ["action"],
             "additionalProperties": false
           }
         }
@@ -893,18 +787,14 @@
             "version": 1
           },
           "content": {
-            "toolNames": [
-              "terminal_execute"
-            ],
+            "toolNames": ["terminal_execute"],
             "component": {
               "module": "tool-presentation",
               "export": "default"
             },
             "props": {}
           },
-          "commands": [
-            "pal.terminal.presentation.read"
-          ]
+          "commands": ["pal.terminal.presentation.read"]
         },
         {
           "id": "pal.terminal.result",
@@ -915,7 +805,15 @@
           "content": {
             "toolNames": [
               "terminal_execute",
-              "terminal_session"
+              "terminal_session",
+              "terminal_open",
+              "terminal_send",
+              "terminal_read",
+              "terminal_resize",
+              "terminal_wait",
+              "terminal_close",
+              "terminal_focus",
+              "terminal_list"
             ],
             "component": {
               "module": "tool-presentation",

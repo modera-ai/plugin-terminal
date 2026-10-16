@@ -1,3 +1,4 @@
+import { TerminalControlResult } from "./control-result";
 import { terminalToolTarget } from "./tool-target";
 import React, { useEffect, useState } from "react";
 import { AgentTerminal, ToolExecution, type AgentTerminalData } from "@pal/ui";
@@ -30,6 +31,7 @@ export default function TerminalPresentation({
 }: Props) {
   const [view, setView] = useState<{
     title: string;
+    kind?: "command" | "control";
     data: AgentTerminalData;
   }>();
   const [error, setError] = useState("");
@@ -42,6 +44,7 @@ export default function TerminalPresentation({
       try {
         const value = await api.commands.execute<{
           title: string;
+          kind?: "command" | "control";
           data: AgentTerminalData;
         }>("pal.terminal.presentation.read", {});
         if (alive && selected === sequence && !api.signal.aborted) {
@@ -88,7 +91,12 @@ export default function TerminalPresentation({
       kind="terminal"
       name={context.tool.name}
       title={view.title}
-      target={terminalToolTarget(context.tool.name, context.tool.input)}
+      target={terminalToolTarget(
+        context.tool.name,
+        context.tool.input,
+        view.data,
+        locale,
+      )}
       state={presentation.state}
       input={context.tool.input}
       tone="slate"
@@ -97,13 +105,22 @@ export default function TerminalPresentation({
       onOpenChange={presentation.onOpenChange}
       awaitingInput={!!view.data.inputReady}
     >
-      <AgentTerminal
-        data={view.data}
-        busy={busy}
-        error={error}
-        locale={locale}
-        onAction={act}
-      />
+      {view.kind === "control" ? (
+        <TerminalControlResult
+          name={context.tool.name}
+          input={context.tool.input}
+          result={view.data}
+          locale={locale}
+        />
+      ) : (
+        <AgentTerminal
+          data={view.data}
+          busy={busy}
+          error={error}
+          locale={locale}
+          onAction={act}
+        />
+      )}
     </ToolExecution>
   );
 }

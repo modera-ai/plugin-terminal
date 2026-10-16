@@ -319,7 +319,7 @@ export class TerminalControl {
       data,
     });
     this.focused.set(this.scope(context), item.id);
-    return { ok: true, tabId: item.id };
+    return { ...this.metadata(item, context), ok: true };
   }
   read(input: { tabId?: string; cursor?: number }, context: ToolContext) {
     const item = this.owned(context, input.tabId);
@@ -457,7 +457,12 @@ export class TerminalControl {
         item.panelResource ?? JSON.stringify({ tabId: item.id }),
         context,
       );
-    return { ok: true, tabId: item.id, activeTabId: next ?? null };
+    return {
+      ...this.metadata(item, context),
+      alive: false,
+      ok: true,
+      activeTabId: next ?? null,
+    };
   }
   async focus(input: { tabId: string }, context: ToolContext) {
     const item = this.owned(context, input.tabId);

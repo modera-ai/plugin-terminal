@@ -8,7 +8,7 @@ import { expect, it } from "vitest";
 import { activate } from "../src";
 import { terminalFixture, executePrepared } from "./helpers/terminal-fixture";
 
-it("foreground yield preserves output, scope cancellation and persistent logs", async () => {
+it("explicit background preserves output, scope cancellation and persistent logs", async () => {
   const f = await terminalFixture();
   const contributions = await activate(f.host);
   const execute = contributions!.tools!.find(
@@ -26,7 +26,7 @@ it("foreground yield preserves output, scope cancellation and persistent logs", 
             ? "echo first; Start-Sleep -Milliseconds 200; echo second; Start-Sleep -Seconds 30"
             : "echo first; sleep 0.2; echo second; sleep 30",
         description: "long task",
-        yieldTimeMs: 0,
+        background: true,
       },
       f.context,
     )) as any;

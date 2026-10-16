@@ -25,7 +25,7 @@ export function registerTerminalPresentation(
       async run(input, { request, context }) {
         if (
           !request.tool ||
-          !["terminal_execute", "terminal_session"].includes(request.tool.name)
+          !manifest.tools.some((tool) => tool.id === request.tool!.name)
         )
           throw new Error("Terminal presentation binding required");
         const approval = !!request.approvalId;
@@ -46,6 +46,10 @@ export function registerTerminalPresentation(
             );
           } else {
             if (action.action !== "stop") throw new Error("Action unavailable");
+            if (request.tool.result === undefined && request.toolCallId) {
+              sessions.stopForCall(request.toolCallId, context);
+              return { ok: true };
+            }
             const data = JSON.parse(request.tool.result ?? "null");
             sessions.execute(
               { action: "stop", sessionId: data?.sessionId },
@@ -54,6 +58,24 @@ export function registerTerminalPresentation(
             );
           }
           return { ok: true };
+        }
+        const tool = manifest.tools.find(
+          (item) => item.id === request.tool!.name,
+        )!;
+        const title = localizeMetadata(
+          tool as ToolDefinition,
+          request.locale ?? "zh-CN",
+        ).title;
+        if (
+          !["terminal_execute", "terminal_session"].includes(request.tool.name)
+        ) {
+          if (approval)
+            throw new Error("Control tool approval uses host arguments");
+          return {
+            title,
+            kind: "control",
+            data: JSON.parse(request.tool.result ?? "{}"),
+          };
         }
         const value = request.tool.input as {
           description?: string;
@@ -65,8 +87,13 @@ export function registerTerminalPresentation(
           pending && value?.interactive && request.toolCallId
             ? interactive.snapshotIfAvailable(request.toolCallId, context)
             : undefined;
+        const liveForeground =
+          pending && !value?.interactive && request.toolCallId
+            ? sessions.snapshotForCall(request.toolCallId, context)
+            : undefined;
         const data = pending
-          ? (liveInteractive ?? {
+          ? (liveInteractive ??
+            liveForeground ?? {
               description: value?.description,
               command: value?.command,
               cwd: context.workspacePath,
@@ -81,16 +108,9 @@ export function registerTerminalPresentation(
         const current = data.sessionId
           ? sessions.snapshot(data.sessionId, context)
           : undefined;
-        const tool = manifest.tools.find(
-          (item) => item.id === request.tool!.name,
-        );
         return {
-          title: tool
-            ? localizeMetadata(
-                tool as ToolDefinition,
-                request.locale ?? "zh-CN",
-              ).title
-            : request.tool.name,
+          title,
+          kind: "command",
           live:
             (!!pending && data.status === "running") ||
             (!!current && !current.done),

@@ -167,7 +167,7 @@ it("scope cancellation terminates an executing command and its descendant", asyn
         command: nodeCommand(
           `require('child_process').spawn(process.execPath,['-e',${JSON.stringify(child)}],{stdio:'inherit'});setInterval(()=>{},1000)`,
         ),
-        yieldTimeMs: 0,
+        background: true,
       },
       f.context,
     );

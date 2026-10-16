@@ -58,7 +58,6 @@ async function fixture(
       {
         command: "echo fake",
         description: "work",
-        yieldTimeMs: 30000,
         ...input,
       },
       context,
@@ -225,4 +224,95 @@ it("releases a registration failure even when closing its log also fails", () =>
     await vi.waitFor(() => expect(processes).toHaveLength(2));
     processes.forEach((p) => p.finish());
     await Promise.all([first, second]);
+  }));
+
+it("a 1000-second foreground operation stays pending and returns only the final result", () =>
+  fixture(async (f) => {
+    let settled = false;
+    const pending = f.start().finally(() => {
+      settled = true;
+    });
+    await vi.waitFor(() => expect(processes).toHaveLength(1));
+    try {
+      vi.useFakeTimers();
+      await vi.advanceTimersByTimeAsync(1000000);
+      expect(settled).toBe(false);
+      expect(runCommand).toHaveBeenCalledTimes(1);
+      processes[0].finish();
+      const result = await pending;
+      expect(result).toMatchObject({ status: "completed", output: "done" });
+      expect(result).not.toHaveProperty("sessionId");
+    } finally {
+      vi.useRealTimers();
+    }
+  }));
+it("cancelling a pending foreground call stops its process and rejects the old result", () =>
+  fixture(async (f) => {
+    const controller = new AbortController();
+    const pending = f.start({}, { ...f.context, signal: controller.signal });
+    await vi.waitFor(() => expect(processes).toHaveLength(1));
+    const signal = vi.mocked(runCommand).mock.calls[0][4];
+    controller.abort();
+    await expect(pending).rejects.toThrow();
+    expect(signal.aborted).toBe(true);
+    await f.drain();
+  }));
+it("foreground and background use different waiting budgets and no yieldTimeMs schema", () =>
+  fixture(async (f) => {
+    const contributions = await activate(f.host);
+    const tool = contributions!.tools!.find(
+      (tool) => tool.definition.id === "terminal_execute",
+    )!;
+    expect(
+      (tool.definition.inputSchema.properties as any).yieldTimeMs,
+    ).toBeUndefined();
+    for (const [input, budget] of [
+      [{}, 1805000],
+      [{ background: true }, 60000],
+      [{ timeout: 1000000 }, 1005000],
+    ] as const) {
+      const prepared = await tool.prepare!(
+        { command: "echo test", description: "测试", ...input },
+        f.context,
+      );
+      expect(prepared.executionTimeoutMs).toBe(budget);
+      prepared.dispose?.();
+    }
+  }));
+
+it("a foreground card can inspect and stop its own pending command without a public job ID", () =>
+  fixture(async (f) => {
+    const contributions = await activate(f.host);
+    const tool = contributions!.tools!.find(
+      (tool) => tool.definition.id === "terminal_execute",
+    )!;
+    const context = { ...f.context, toolCallId: "foreground" };
+    const pending = executePrepared(
+      tool,
+      { command: "echo test", description: "测试等待" },
+      context,
+    );
+    const read = contributions!.commands!.find(
+      (command) => command.id === "pal.terminal.presentation.read",
+    )!;
+    const act = contributions!.commands!.find(
+      (command) => command.id === "pal.terminal.presentation.act",
+    )!;
+    const request = {
+      tool: {
+        name: "terminal_execute",
+        input: { command: "echo test", description: "测试等待" },
+      },
+      toolCallId: "foreground",
+      locale: "zh-CN",
+    };
+    await vi.waitFor(() => expect(processes).toHaveLength(1));
+    const view = (await read.run!({}, { request, context } as never)) as any;
+    expect(view.data.canStop).toBe(true);
+    expect(view.data.status).toBe("running");
+    await act.run!({ action: "stop" }, { request, context } as never);
+    expect(await pending).toMatchObject({
+      status: "cancelled",
+      stoppedBy: "user",
+    });
   }));

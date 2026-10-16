@@ -24,6 +24,7 @@ async function fixture() {
   const sessions = {
     logs: {},
     snapshot: vi.fn(),
+    snapshotForCall: vi.fn(),
   } as unknown as TerminalSessions;
   const registered = await definePlugin((pal) =>
     registerTerminalPresentation(pal, sessions, interactive),
@@ -94,3 +95,30 @@ it("renders an interactive command before process registration without an error 
     canStop: false,
   });
 });
+
+it.each([
+  "terminal_open",
+  "terminal_send",
+  "terminal_read",
+  "terminal_resize",
+  "terminal_wait",
+  "terminal_close",
+  "terminal_focus",
+  "terminal_list",
+])(
+  "%s uses the plugin-owned control result instead of managed-command rendering",
+  async (name) => {
+    const { ui } = await fixture();
+    const result = { tabId: "tab", title: "开发终端", text: "output" };
+    const view = await ui.render(
+      {
+        ...request(false),
+        tool: { name, input: {}, result: JSON.stringify(result) },
+      },
+      context,
+    );
+    expect(view.kind).toBe("control");
+    expect(view.title).toBeTruthy();
+    expect(view.data).toEqual(result);
+  },
+);

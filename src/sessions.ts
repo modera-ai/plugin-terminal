@@ -18,6 +18,8 @@ interface Job {
   expiresAt: number | null;
   id: string;
   owner: string;
+  callId?: string;
+  root?: string;
   project: string | undefined;
   command: string;
   cwd: string;
@@ -75,6 +77,8 @@ export class TerminalSessions {
       expiresAt: Number.isFinite(timeout) ? Date.now() + timeout : null,
       id: randomUUID(),
       owner: context.sessionId,
+      ...(context.toolCallId ? { callId: context.toolCallId } : {}),
+      ...(context.workspacePath ? { root: context.workspacePath } : {}),
       project: context.projectId,
       command,
       cwd,
@@ -165,19 +169,19 @@ export class TerminalSessions {
       exitCode: null,
     };
   }
-  async wait(id: string, context: ToolContext, yieldTimeMs: number) {
+  /** Foreground calls await once and return the final bounded result, never a polling handle. */
+  async complete(id: string, context: ToolContext) {
     const job = this.jobs.get(id);
     if (
       !job ||
       job.owner !== context.sessionId ||
-      job.project !== context.projectId
+      job.project !== context.projectId ||
+      job.root !== context.workspacePath
     )
       throw new Error("Terminal session unavailable");
-    let timer: ReturnType<typeof setTimeout> | undefined;
     let wake!: () => void;
-    const wait = new Promise<void>((resolve) => {
+    const cancelled = new Promise<void>((resolve) => {
       wake = resolve;
-      timer = setTimeout(resolve, yieldTimeMs);
     });
     const abort = () => {
       job.controller.abort();
@@ -186,13 +190,40 @@ export class TerminalSessions {
     context.signal.addEventListener("abort", abort, { once: true });
     try {
       if (context.signal.aborted) abort();
-      await Promise.race([job.completion, wait]);
+      await Promise.race([job.completion, cancelled]);
       context.signal.throwIfAborted();
-      return await this.execute({ action: "read", sessionId: id }, context);
+      return {
+        ...(job.result ?? {
+          status: "failed",
+          error: job.error ?? "Command did not return a result",
+        }),
+        logPath: job.log?.path,
+        logError: job.logError,
+        logTruncated: job.log?.truncated,
+      };
     } finally {
-      clearTimeout(timer);
       context.signal.removeEventListener("abort", abort);
     }
+  }
+  private forCall(callId: string, context: ToolContext) {
+    this.host.signal.throwIfAborted();
+    context.signal.throwIfAborted();
+    return [...this.jobs.values()].find(
+      (job) =>
+        job.callId === callId &&
+        job.owner === context.sessionId &&
+        job.project === context.projectId &&
+        job.root === context.workspacePath,
+    );
+  }
+  snapshotForCall(callId: string, context: ToolContext) {
+    const job = this.forCall(callId, context);
+    return job ? this.snapshot(job.id, context) : undefined;
+  }
+  stopForCall(callId: string, context: ToolContext) {
+    const job = this.forCall(callId, context);
+    if (!job) throw new Error("Terminal command unavailable");
+    return this.execute({ action: "stop", sessionId: job.id }, context, "user");
   }
   execute(
     raw: unknown,

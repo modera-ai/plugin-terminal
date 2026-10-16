@@ -20,7 +20,6 @@ import { registerTerminalPanel } from "./panel";
 
 const definition = declaredTool(manifest, "terminal_execute");
 interface Plan {
-  yieldTimeMs: number;
   interactive: boolean;
   background: boolean;
   command: string;
@@ -54,7 +53,6 @@ export const activate: PluginModule["activate"] = async (host) => {
       description: string;
       workingDirectory?: string;
       timeout?: number;
-      yieldTimeMs?: number;
       background?: boolean;
       interactive?: boolean;
     };
@@ -80,14 +78,13 @@ export const activate: PluginModule["activate"] = async (host) => {
     context.signal.throwIfAborted();
     if (plans.size >= 8) throw new Error("Too many pending terminal approvals");
     const plan: Plan = {
-      yieldTimeMs: input.yieldTimeMs ?? 10000,
       interactive: input.interactive === true,
       background: input.background === true,
       command: input.command,
       description: input.description,
       cwd,
       shell,
-      timeout: input.timeout ?? (input.interactive ? 1800000 : Infinity),
+      timeout: input.timeout ?? (input.background ? Infinity : 1800000),
       session: context.sessionId,
       project: context.projectId,
       root: context.workspacePath,
@@ -96,14 +93,13 @@ export const activate: PluginModule["activate"] = async (host) => {
     plans.set(token, plan);
     return {
       input: { token },
-      executionTimeoutMs: plan.interactive ? plan.timeout + 5000 : 60000,
+      executionTimeoutMs: plan.background ? 60000 : plan.timeout + 5000,
       preview: {
         command: plan.command,
         description: plan.description,
         cwd,
         shell,
         timeout: Number.isFinite(plan.timeout) ? plan.timeout : null,
-        yieldTimeMs: plan.yieldTimeMs,
         background: plan.background,
         interactive: plan.interactive,
       },
@@ -171,14 +167,7 @@ export const activate: PluginModule["activate"] = async (host) => {
               context,
             );
             if (plan.background) return started;
-            return {
-              ...started,
-              ...(await sessions.wait(
-                started.sessionId,
-                context,
-                plan.yieldTimeMs,
-              )),
-            };
+            return await sessions.complete(started.sessionId, context);
           } finally {
             if (reserved) reservations--;
           }
