@@ -1,3 +1,4 @@
+import { terminalToolTarget } from "./tool-target";
 import React, { useEffect, useState } from "react";
 import { AgentTerminal, ToolExecution, type AgentTerminalData } from "@pal/ui";
 interface Props {
@@ -87,6 +88,7 @@ export default function TerminalPresentation({
       kind="terminal"
       name={context.tool.name}
       title={view.title}
+      target={terminalToolTarget(context.tool.name, context.tool.input)}
       state={presentation.state}
       input={context.tool.input}
       tone="slate"
