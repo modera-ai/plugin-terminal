@@ -1,3 +1,4 @@
+import { usableTerminalLayout } from "./terminal-layout";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -72,11 +73,67 @@ function TerminalPanel() {
     const stopTheme = frontend().onThemeChanged(() => {
       terminal.options.theme = readTheme();
     });
-    fit.fit();
     let id = "";
     let cursor = 0;
     let stopped = false;
     let exited = false;
+    let fitFrame = 0;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    let sentSize = "";
+    const resizePty = () => {
+      const host = element.current;
+      if (
+        stopped ||
+        exited ||
+        !id ||
+        !host ||
+        !usableTerminalLayout(host.clientWidth, host.clientHeight, terminal)
+      )
+        return;
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = undefined;
+        const host = element.current;
+        if (
+          stopped ||
+          exited ||
+          !host ||
+          !usableTerminalLayout(host.clientWidth, host.clientHeight, terminal)
+        )
+          return;
+        const size = `${terminal.cols}:${terminal.rows}`;
+        if (size === sentSize) return;
+        sentSize = size;
+        void commands
+          .execute("pal.terminal.resize", {
+            tabId: id,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          })
+          .catch((e) => {
+            if (!stopped) {
+              sentSize = "";
+              setError(String(e));
+            }
+          });
+      }, 120);
+    };
+    const fitVisible = () => {
+      const host = element.current;
+      if (
+        !host ||
+        !usableTerminalLayout(
+          host.clientWidth,
+          host.clientHeight,
+          fit.proposeDimensions(),
+        )
+      )
+        return;
+      fit.fit();
+      // Also synchronize when xterm's default size already equals the measured size.
+      resizePty();
+    };
+    fitVisible();
     const buffered: TerminalOutputEvent[] = [];
     let pendingExit: TerminalExitEvent | undefined;
     const apply = (event: TerminalOutputEvent) => {
@@ -113,14 +170,7 @@ function TerminalPanel() {
         for (const event of buffered.splice(0)) apply(event);
         if (pendingExit) exit(pendingExit);
         if (!info.alive) exit({ id, exitCode: info.exitCode ?? -1 });
-        if (info.alive)
-          void commands
-            .execute("pal.terminal.resize", {
-              tabId: id,
-              cols: terminal.cols,
-              rows: terminal.rows,
-            })
-            .catch((e) => setError(String(e)));
+        if (info.alive) fitVisible();
       })
       .catch((e) => {
         if (!stopped) {
@@ -136,8 +186,6 @@ function TerminalPanel() {
             if (!stopped) setError(String(e));
           });
     });
-    let fitFrame = 0;
-    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     const observer = new ResizeObserver(() => {
       if (
         !element.current ||
@@ -148,22 +196,13 @@ function TerminalPanel() {
       cancelAnimationFrame(fitFrame);
       fitFrame = requestAnimationFrame(() => {
         try {
-          fit.fit();
+          fitVisible();
         } catch {
           // Ignore transient layout states while the panel is moving.
         }
       });
     });
-    const terminalResize = terminal.onResize(({ cols, rows }) => {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        resizeTimer = undefined;
-        if (id)
-          void commands
-            .execute("pal.terminal.resize", { tabId: id, cols, rows })
-            .catch(() => {});
-      }, 120);
-    });
+    const terminalResize = terminal.onResize(resizePty);
     observer.observe(element.current);
     terminal.focus();
     return () => {
