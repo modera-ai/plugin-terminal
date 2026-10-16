@@ -83,7 +83,8 @@ export default function TerminalPanel({
     let stopped = false;
     let exited = false;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-    let sentSize = "";
+    let sizeRevision = 0;
+    let sentRevision = 0;
     let resizingPty = false;
     let desiredSize: { cols: number; rows: number } | undefined;
     const flushPtySize = () => {
@@ -100,14 +101,14 @@ export default function TerminalPanel({
       )
         return;
       const { cols, rows } = desiredSize;
-      const size = `${cols}:${rows}`;
-      if (size === sentSize) return;
+      const revision = sizeRevision;
+      if (revision === sentRevision) return;
       resizingPty = true;
       let succeeded = false;
       void commands
         .execute("pal.terminal.resize", { tabId: id, cols, rows })
         .then(() => {
-          sentSize = size;
+          sentRevision = revision;
           succeeded = true;
         })
         .catch((e) => {
@@ -135,6 +136,7 @@ export default function TerminalPanel({
       )
         return;
       desiredSize = { cols: terminal.cols, rows: terminal.rows };
+      sizeRevision++;
       if (resizeTimer) clearTimeout(resizeTimer);
       // ConPTY can repaint the entire screen on resize. Like Snow, update the
       // local terminal immediately but notify the shell only after dragging settles.
@@ -160,9 +162,9 @@ export default function TerminalPanel({
         terminal.cols !== dimensions.cols ||
         terminal.rows !== dimensions.rows
       )
-        // FitAddon.fit clears the render layer before resizing; the public API
-        // already handles resize/reflow without that additional blank frame.
-        terminal.resize(dimensions.cols, dimensions.rows);
+        // Keep FitAddon's renderer invalidation, as Snow does. A bare resize
+        // is not a replacement for its complete fit path.
+        fit.fit();
       // Also synchronize when xterm's default size already equals the measured size.
       resizePty();
     };
