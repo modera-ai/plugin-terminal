@@ -1,4 +1,3 @@
-import { traceResize } from "./resize-diagnostics";
 import { usableTerminalLayout } from "./terminal-layout";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -87,7 +86,6 @@ export default function TerminalPanel({
     let sizeRevision = 0;
     let sentRevision = 0;
     let resizingPty = false;
-    let lastFitAt = -Infinity;
     let desiredSize: { cols: number; rows: number } | undefined;
     const flushPtySize = () => {
       const host = element.current;
@@ -105,13 +103,11 @@ export default function TerminalPanel({
       const { cols, rows } = desiredSize;
       const revision = sizeRevision;
       if (revision === sentRevision) return;
-      traceResize("command.request", { cols, rows, revision });
       resizingPty = true;
       let succeeded = false;
       void commands
         .execute("pal.terminal.resize", { tabId: id, cols, rows })
         .then(() => {
-          traceResize("command.done", { cols, rows, revision });
           sentRevision = revision;
           succeeded = true;
         })
@@ -141,11 +137,6 @@ export default function TerminalPanel({
         return;
       desiredSize = { cols: terminal.cols, rows: terminal.rows };
       sizeRevision++;
-      traceResize("command.queued", {
-        cols: terminal.cols,
-        rows: terminal.rows,
-        revision: sizeRevision,
-      });
       if (resizeTimer) clearTimeout(resizeTimer);
       // ConPTY can repaint the entire screen on resize. Like Snow, update the
       // local terminal immediately but notify the shell only after dragging settles.
@@ -167,27 +158,13 @@ export default function TerminalPanel({
         !dimensions
       )
         return;
-      traceResize("layout.observed", {
-        width: host.clientWidth,
-        height: host.clientHeight,
-        cols: terminal.cols,
-        rows: terminal.rows,
-        targetCols: dimensions.cols,
-        targetRows: dimensions.rows,
-      });
       if (
         terminal.cols !== dimensions.cols ||
         terminal.rows !== dimensions.rows
-      ) {
-        lastFitAt = performance.now();
-        traceResize("fit.start", { cols: terminal.cols, rows: terminal.rows });
+      )
+        // Keep FitAddon's renderer invalidation, as Snow does. A bare resize
+        // is not a replacement for its complete fit path.
         fit.fit();
-        traceResize("fit.end", {
-          cols: terminal.cols,
-          rows: terminal.rows,
-          duration: performance.now() - lastFitAt,
-        });
-      }
       // Also synchronize when xterm's default size already equals the measured size.
       resizePty();
     };
@@ -203,21 +180,7 @@ export default function TerminalPanel({
       if (event.id !== id) return;
       const offset = event.offset ?? cursor;
       const skip = Math.max(0, cursor - offset);
-      if (skip < event.data.length) {
-        const tracing = performance.now() - lastFitAt < 1500;
-        if (tracing)
-          traceResize("write.received", { chars: event.data.length - skip });
-        terminal.write(
-          event.data.slice(skip),
-          tracing
-            ? () =>
-                traceResize("write.parsed", {
-                  cols: terminal.cols,
-                  rows: terminal.rows,
-                })
-            : undefined,
-        );
-      }
+      if (skip < event.data.length) terminal.write(event.data.slice(skip));
       cursor = Math.max(cursor, offset + event.data.length);
     };
     const exit = (event: TerminalExitEvent) => {
@@ -275,13 +238,6 @@ export default function TerminalPanel({
         // Ignore transient layout states while the panel is moving.
       }
     });
-    const rendered = terminal.onRender(() => {
-      if (performance.now() - lastFitAt < 1500)
-        traceResize("render.frame", {
-          cols: terminal.cols,
-          rows: terminal.rows,
-        });
-    });
     const terminalResize = terminal.onResize(resizePty);
     observer.observe(element.current);
     terminal.focus();
@@ -292,7 +248,6 @@ export default function TerminalPanel({
       // Surface disposal closes the PTY; navigation and renderer cleanup do not.
       observer.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
-      rendered.dispose();
       terminalResize.dispose();
       input.dispose();
       terminal.dispose();
