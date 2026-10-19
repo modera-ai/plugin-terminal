@@ -13,6 +13,18 @@ import type { PluginFrontendApi, PluginSurfaceSnapshot } from "@pal/contracts";
 import type { TerminalOutputEvent, TerminalExitEvent } from "@pal/plugin-sdk";
 import { operationErrorDetail } from "@pal/contracts";
 
+function terminalTheme(theme: PluginSurfaceSnapshot["theme"]) {
+  const light = theme?.mode === "light";
+  return {
+    background: theme?.colors?.page || "#101318",
+    foreground: theme?.colors?.ink || "#e6e9ef",
+    cursor: theme?.accent || "#e6e9ef",
+    selectionBackground: theme?.colors?.soft || "#ffffff33",
+    yellow: light ? "#806000" : undefined,
+    brightYellow: light ? "#8a6500" : undefined,
+  };
+}
+
 export default function TerminalPanel({
   api,
   snapshot,
@@ -39,15 +51,6 @@ export default function TerminalPanel({
       ?.config ?? {};
   useEffect(() => {
     if (!element.current || !snapshot) return;
-    const readTheme = () => {
-      const theme = themeRef.current;
-      return {
-        background: theme?.colors?.page || "#101318",
-        foreground: theme?.colors?.ink || "#e6e9ef",
-        cursor: theme?.accent || "#e6e9ef",
-        selectionBackground: theme?.colors?.soft || "#ffffff33",
-      };
-    };
     const terminal = new Terminal({
       cursorBlink: true,
       convertEol: false,
@@ -57,7 +60,7 @@ export default function TerminalPanel({
       fontSize: Number(values.fontSize ?? 13),
       lineHeight: Number(values.lineHeight ?? 1.2),
       scrollback: Number(values.scrollback ?? 5000),
-      theme: readTheme(),
+      theme: terminalTheme(themeRef.current),
     });
     terminalRef.current = terminal;
     const fit = new FitAddon();
@@ -256,12 +259,7 @@ export default function TerminalPanel({
   }, [api, startupError, retry]);
   useEffect(() => {
     if (terminalRef.current)
-      terminalRef.current.options.theme = {
-        background: snapshot.theme?.colors?.page || "#101318",
-        foreground: snapshot.theme?.colors?.ink || "#e6e9ef",
-        cursor: snapshot.theme?.accent || "#e6e9ef",
-        selectionBackground: snapshot.theme?.colors?.soft || "#ffffff33",
-      };
+      terminalRef.current.options.theme = terminalTheme(snapshot.theme);
   }, [snapshot.theme]);
   useEffect(() => {
     if (error)
