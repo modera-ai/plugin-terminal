@@ -99,6 +99,7 @@ export default function TerminalPresentation({
       )}
       state={presentation.state}
       input={context.tool.input}
+      output={view.data}
       tone="slate"
       locale={locale}
       open={presentation.open}
