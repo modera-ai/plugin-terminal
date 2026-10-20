@@ -112,6 +112,9 @@
       "id": "terminal_execute",
       "description": "Execute one command in the project shell (Windows PowerShell; POSIX bash/sh). Supply a brief description in the user's language. By default this ONE tool call waits until the command finishes, fails, is cancelled or times out; do NOT poll terminal_session for foreground execution. timeout defaults to 1800000ms (30 minutes) for foreground commands. For long-running servers/watchers explicitly set background=true: returns a managed sessionId immediately; use terminal_session to inspect or stop that background job. For USER input set interactive=true: the same call stays pending while the user types in its card. interactive and background cannot be combined. Background timeout is optional. Host approval required. Bounded model output. User OS privileges, NOT sandboxed.",
       "locales": {
+        "zh": {
+          "title": "执行终端命令"
+        },
         "en": {
           "title": "Execute terminal command"
         },
@@ -184,6 +187,9 @@
       "id": "terminal_session",
       "description": "List, read incremental output or stop managed terminal jobs in this conversation. read uses an absolute character cursor. logs lists persisted log IDs/paths for this conversation; read_log accepts sessionId=log ID and a UTF-8 BYTE cursor, returning nextCursor/hasMore (max 12000 bytes). Reuse returned cursors, do not mix character and byte cursors. Logs survive restart, processes do not. Poll only when needed. No stdin or PTY.",
       "locales": {
+        "zh": {
+          "title": "管理终端任务"
+        },
         "en": {
           "title": "Manage terminal tasks"
         },
@@ -235,6 +241,9 @@
     {
       "id": "terminal_open",
       "locales": {
+        "zh": {
+          "title": "打开交互终端"
+        },
         "en": {
           "title": "Open terminal"
         }
@@ -278,6 +287,9 @@
     {
       "id": "terminal_send",
       "locales": {
+        "zh": {
+          "title": "向终端发送输入"
+        },
         "en": {
           "title": "Send terminal input"
         }
@@ -331,6 +343,9 @@
     {
       "id": "terminal_read",
       "locales": {
+        "zh": {
+          "title": "读取终端"
+        },
         "en": {
           "title": "Read terminal"
         }
@@ -366,6 +381,9 @@
     {
       "id": "terminal_resize",
       "locales": {
+        "zh": {
+          "title": "调整终端大小"
+        },
         "en": {
           "title": "Resize terminal"
         }
@@ -403,6 +421,9 @@
     {
       "id": "terminal_wait",
       "locales": {
+        "zh": {
+          "title": "等待终端空闲"
+        },
         "en": {
           "title": "Wait for terminal idle"
         }
@@ -439,6 +460,9 @@
     {
       "id": "terminal_close",
       "locales": {
+        "zh": {
+          "title": "关闭终端"
+        },
         "en": {
           "title": "Close terminal"
         }
@@ -465,6 +489,9 @@
     {
       "id": "terminal_focus",
       "locales": {
+        "zh": {
+          "title": "聚焦终端"
+        },
         "en": {
           "title": "Focus terminal"
         }
@@ -493,6 +520,9 @@
     {
       "id": "terminal_list",
       "locales": {
+        "zh": {
+          "title": "列出终端"
+        },
         "en": {
           "title": "List terminals"
         }
