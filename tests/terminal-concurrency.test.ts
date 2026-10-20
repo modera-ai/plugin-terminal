@@ -214,7 +214,7 @@ it("releases a registration failure even when closing its log also fails", () =>
     };
     try {
       for (let i = 0; i < 2; i++)
-        await expect(f.start()).rejects.toThrow("log close failed");
+        await expect(f.start({ background: true })).rejects.toThrow("log close failed");
     } finally {
       f.host.runBackground = original;
       create.mockRestore();

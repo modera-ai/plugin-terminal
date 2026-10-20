@@ -16,38 +16,7 @@ import { detectTerminalOptions } from "./terminal-detection";
 
 const MAX_BUFFER = 1_000_000;
 const PANEL_ID = "pal.terminal.panel";
-const keys: Record<string, string> = {
-  enter: "\r",
-  tab: "\t",
-  backspace: "\x7f",
-  esc: "\x1b",
-  escape: "\x1b",
-  up: "\x1b[A",
-  down: "\x1b[B",
-  right: "\x1b[C",
-  left: "\x1b[D",
-  home: "\x1b[H",
-  end: "\x1b[F",
-  pageup: "\x1b[5~",
-  pagedown: "\x1b[6~",
-  insert: "\x1b[2~",
-  delete: "\x1b[3~",
-  "ctrl+c": "\x03",
-  "ctrl+d": "\x04",
-  "ctrl+z": "\x1a",
-  f1: "\x1bOP",
-  f2: "\x1bOQ",
-  f3: "\x1bOR",
-  f4: "\x1bOS",
-  f5: "\x1b[15~",
-  f6: "\x1b[17~",
-  f7: "\x1b[18~",
-  f8: "\x1b[19~",
-  f9: "\x1b[20~",
-  f10: "\x1b[21~",
-  f11: "\x1b[23~",
-  f12: "\x1b[24~",
-};
+import { resolveTerminalKeys } from "./terminal-keys";
 
 interface ControlledTerminal {
   id: string;
@@ -308,9 +277,7 @@ export class TerminalControl {
     if (textMode === keyMode)
       throw new Error("Provide exactly one of input or keys");
     if (!item.alive) throw new Error("Terminal process has exited");
-    let data = textMode
-      ? input.input!
-      : input.keys!.map((key) => keys[key.toLowerCase()] ?? key).join("");
+    let data = textMode ? input.input! : resolveTerminalKeys(input.keys!);
     if (keyMode && input.keys!.length > 64)
       throw new Error("keys accepts at most 64 entries");
     if (textMode && !/[\r\n]$/.test(data)) data += "\r";

@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { isUtf8 } from "node:buffer";
-import { mkdir, readdir, open, lstat } from "@pal/plugin-sdk/workspace-fs";
+import {
+  mkdir,
+  readdir,
+  open,
+  lstat,
+  unlink,
+} from "@pal/plugin-sdk/workspace-fs";
 import { join } from "@pal/plugin-sdk/workspace-path";
 import type { ToolContext } from "@pal/plugin-sdk";
 
@@ -25,8 +31,9 @@ export interface LogWriter {
   append(text: string): void;
   close(): Promise<void>;
 }
-/** Own storage only. 64 files × 4 MiB; no automatic deletion of existing logs. */
+/** Background output: 4 MiB per file, 64 files, seven-day retention. */
 export class TerminalLogs {
+  private readonly active = new Set<string>();
   private queue: Promise<unknown> = Promise.resolve();
   private readonly directory: string;
   constructor(storagePath: string) {
@@ -48,16 +55,39 @@ export class TerminalLogs {
     const operation = this.queue.then(async () => {
       context.signal.throwIfAborted();
       await this.ready();
-      if (
-        (await readdir(this.directory)).filter((name) => logName.test(name))
-          .length >= 64
-      )
-        throw new Error(
-          "Terminal log quota reached (64 files). Remove unneeded logs from: " +
-            this.directory,
-        );
       const path = this.path(id, context);
+      const entries = await Promise.all(
+        (await readdir(this.directory))
+          .filter((name) => logName.test(name))
+          .map(async (name) => {
+            const candidate = join(this.directory, name);
+            const info = await lstat(candidate);
+            return {
+              path: candidate,
+              modified: info.mtimeMs,
+              valid: info.isFile() && !info.isSymbolicLink(),
+            };
+          }),
+      );
+      if (entries.some((entry) => entry.path === path))
+        throw new Error("Log already exists");
+      let count = entries.length;
+      for (const entry of entries.sort(
+        (a, b) => a.modified - b.modified || a.path.localeCompare(b.path),
+      )) {
+        if (!entry.valid || this.active.has(entry.path)) continue;
+        if (count < 64 && Date.now() - entry.modified < 7 * 24 * 60 * 60 * 1000)
+          continue;
+        await unlink(entry.path);
+        count--;
+      }
+      if (count >= 64)
+        throw new Error(
+          "Terminal log quota reached: no inactive logs can be removed",
+        );
       const file = await open(path, "wx", 0o600);
+      this.active.add(path);
+      const active = this.active;
       let bytes = 0,
         closed = false;
       let writes = Promise.resolve();
@@ -87,8 +117,12 @@ export class TerminalLogs {
         async close() {
           if (closed) return;
           closed = true;
-          await writes;
-          await file.close();
+          try {
+            await writes;
+            await file.close();
+          } finally {
+            active.delete(path);
+          }
           if (error) throw error;
         },
       };

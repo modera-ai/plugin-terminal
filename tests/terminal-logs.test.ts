@@ -1,6 +1,6 @@
 import { it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, stat, writeFile, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { TerminalLogs } from "../src/logs";
@@ -68,12 +68,14 @@ it("caps each log and refuses storage-directory conflicts before writing", async
     await rm(root, { recursive: true, force: true });
   }
 });
-it("quota is serialized for concurrent creates and never deletes existing logs", async () => {
+it("rotates closed logs under concurrent creates and protects active writers", async () => {
   const root = await mkdtemp(join(tmpdir(), "df-log-quota-"));
   try {
     const logs = new TerminalLogs(root);
     for (let i = 0; i < 63; i++)
       await (await logs.create(randomUUID(), context)).close();
+    const active = await logs.create(randomUUID(), context);
+    await utimes(active.path, 0, 0);
     const results = await Promise.allSettled([
       logs.create(randomUUID(), context),
       logs.create(randomUUID(), context),
@@ -82,8 +84,28 @@ it("quota is serialized for concurrent creates and never deletes existing logs",
       if (result.status === "fulfilled") await result.value.close();
     expect(
       results.filter((result) => result.status === "fulfilled"),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect((await logs.list(context)).logs).toHaveLength(64);
+    active.append("still active");
+    await active.close();
+    expect(
+      (await logs.read(active.path.slice(-40, -4), 0, context)).output,
+    ).toBe("still active");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("removes expired closed logs when a background log is created", async () => {
+  const root = await mkdtemp(join(tmpdir(), "df-log-expiry-"));
+  try {
+    const logs = new TerminalLogs(root);
+    const expired = await logs.create(randomUUID(), context);
+    await expired.close();
+    await utimes(expired.path, 0, 0);
+    await (await logs.create(randomUUID(), context)).close();
+    await expect(stat(expired.path)).rejects.toThrow();
+    expect((await logs.list(context)).logs).toHaveLength(1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

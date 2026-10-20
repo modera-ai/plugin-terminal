@@ -283,7 +283,7 @@
         }
       },
       "title": "向终端发送输入",
-      "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter, arrows, control keys and F1-F12. Optional description explains complex input on its card; not required for simple answers or key presses.",
+      "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter/return, arrows, ctrl+a through ctrl+z (control+ aliases), and F1-F12 on Windows and macOS. Use ctrl+c to interrupt on both platforms; command+c is not a terminal interrupt. Unknown names are sent verbatim; keys never appends Enter. Optional description explains complex input on its card; not required for simple answers or key presses.",
       "requiredPermissions": ["process.spawn"],
       "inputSchema": {
         "type": "object",

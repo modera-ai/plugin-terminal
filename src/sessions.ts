@@ -56,6 +56,7 @@ export class TerminalSessions {
     cwd: string,
     timeout: number,
     context: ToolContext,
+    background = true,
   ) {
     if (!this.host.runBackground)
       throw new Error("Managed background runtime unavailable");
@@ -91,7 +92,7 @@ export class TerminalSessions {
     this.jobs.set(job.id, job);
     try {
       try {
-        job.log = await this.logs.create(job.id, context);
+        if (background) job.log = await this.logs.create(job.id, context);
       } catch (error) {
         job.logError = String(error);
       }

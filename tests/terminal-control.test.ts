@@ -80,6 +80,11 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
   expect(spawned[0]?.writes.at(-1)).toBe("echo hello\r");
   await control.send({ tabId: first.tabId, keys: ["up", "enter"] }, context);
   expect(spawned[0]?.writes.at(-1)).toBe("\x1b[A\r");
+  await control.send(
+    { keys: [" Control+C ", "ctrl+a", "ctrl+r", "return"] },
+    context,
+  );
+  expect(spawned[0]?.writes.at(-1)).toBe("\x03\x01\x12\r");
   spawned[0]?.data?.("hello\r\n");
   const read = control.read({ tabId: first.tabId, cursor: 0 }, context);
   expect(read.text).toContain("hello");

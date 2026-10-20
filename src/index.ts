@@ -165,6 +165,7 @@ export const activate: PluginModule["activate"] = async (host) => {
               plan.cwd,
               plan.timeout,
               context,
+              plan.background,
             );
             if (plan.background) return started;
             return await sessions.complete(started.sessionId, context);

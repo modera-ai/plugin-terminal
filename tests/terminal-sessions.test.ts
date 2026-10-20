@@ -134,3 +134,25 @@ it("background execution survives unavailable log storage and output above the l
     await rm(root, { recursive: true, force: true });
   }
 }, 20000);
+
+it("foreground commands return output without creating log storage", async () => {
+  const f = await terminalFixture();
+  try {
+    // Even an unusable log directory must not affect foreground execution.
+    await writeFile(join(f.root, "logs"), "not a directory");
+    const contributions = await activate(f.host);
+    const execute = contributions!.tools!.find(
+      (t) => t.definition.id === "terminal_execute",
+    )!;
+    const result = (await executePrepared(
+      execute,
+      { command: "echo FOREGROUND", description: "foreground" },
+      f.context,
+    )) as any;
+    expect(result.output).toContain("FOREGROUND");
+    expect(result.logError).toBeUndefined();
+    expect(result.logPath).toBeUndefined();
+  } finally {
+    await f.close();
+  }
+}, 15000);
