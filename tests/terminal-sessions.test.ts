@@ -96,9 +96,9 @@ it("background execution survives unavailable log storage and output above the l
       storagePath: root,
       signal: controller.signal,
       grantedPermissions: new Set([
-        "process.spawn",
-        "storage.read",
-        "storage.write",
+        "pal.process.spawn",
+        "pal.storage.read",
+        "pal.storage.write",
       ]),
       runBackground: (_context, run) => {
         task = run(controller.signal);

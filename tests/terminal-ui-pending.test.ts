@@ -17,7 +17,7 @@ async function fixture() {
   const interactive = new InteractiveCommands({
     pluginId: "test",
     storagePath: "",
-    grantedPermissions: new Set(["process.spawn"]),
+    grantedPermissions: new Set(["pal.process.spawn"]),
     signal: context.signal,
   });
   const snapshot = vi.spyOn(interactive, "snapshotIfAvailable");

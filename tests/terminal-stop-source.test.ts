@@ -16,7 +16,7 @@ it.each(["user", "agent"] as const)(
       ...processHost(() => controller.signal),
       pluginId: "test",
       storagePath: root,
-      grantedPermissions: new Set(["process.spawn"]),
+      grantedPermissions: new Set(["pal.process.spawn"]),
       signal: controller.signal,
       runBackground: (_context, run) => {
         tasks.push(run(controller.signal));

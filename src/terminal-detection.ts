@@ -12,13 +12,15 @@ export interface DetectedTerminalOption {
   path: string;
 }
 
-export async function detectTerminalOptions(): Promise<
-  DetectedTerminalOption[]
-> {
+export async function detectTerminalOptions(
+  signal?: AbortSignal,
+): Promise<DetectedTerminalOption[]> {
+  signal?.throwIfAborted();
   if (process.platform !== "win32") {
     const candidates = ["/bin/zsh", "/bin/bash", "/bin/fish", "/bin/sh"];
     const found: DetectedTerminalOption[] = [];
     for (const path of candidates) {
+      signal?.throwIfAborted();
       try {
         await access(path, constants.X_OK);
         found.push({ id: path, label: path.split("/").pop()!, path });
@@ -26,6 +28,7 @@ export async function detectTerminalOptions(): Promise<
         /* unavailable */
       }
     }
+    signal?.throwIfAborted();
     return found;
   }
   const root = process.env.SystemRoot ?? "C:\\Windows";
@@ -71,6 +74,8 @@ export async function detectTerminalOptions(): Promise<
   const where = join(root, "System32", "where.exe");
   try {
     const { stdout } = await execute(where, ["git.exe"], {
+      signal,
+      timeout: 5000,
       windowsHide: true,
       encoding: "utf8",
     });
@@ -111,8 +116,11 @@ export async function detectTerminalOptions(): Promise<
     "wsl.exe": "WSL Bash",
   };
   for (const executable of Object.keys(labels)) {
+    signal?.throwIfAborted();
     try {
       const { stdout } = await execute(where, [executable], {
+        signal,
+        timeout: 5000,
         windowsHide: true,
         encoding: "utf8",
       });
@@ -132,6 +140,7 @@ export async function detectTerminalOptions(): Promise<
   const found: DetectedTerminalOption[] = [];
   const seen = new Set<string>();
   for (const item of candidates) {
+    signal?.throwIfAborted();
     try {
       await access(item.path, constants.X_OK);
       const key = item.path.toLowerCase();
@@ -143,10 +152,14 @@ export async function detectTerminalOptions(): Promise<
       /* unavailable */
     }
   }
+  signal?.throwIfAborted();
   return found;
 }
 
-export async function detectWslDistributions(): Promise<string[]> {
+export async function detectWslDistributions(
+  signal?: AbortSignal,
+): Promise<string[]> {
+  signal?.throwIfAborted();
   if (process.platform !== "win32") return [];
   try {
     const wsl = join(
@@ -155,6 +168,8 @@ export async function detectWslDistributions(): Promise<string[]> {
       "wsl.exe",
     );
     const { stdout } = await execute(wsl, ["--list", "--quiet"], {
+      signal,
+      timeout: 5000,
       windowsHide: true,
       encoding: "utf8",
     });
@@ -164,6 +179,7 @@ export async function detectWslDistributions(): Promise<string[]> {
       .map((value) => value.trim())
       .filter(Boolean);
   } catch {
+    signal?.throwIfAborted();
     return [];
   }
 }

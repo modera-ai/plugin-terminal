@@ -115,7 +115,7 @@ test("PAL command declarations match registration; panel is conversation-bound w
     );
     assert.equal(f.panel.scope, "conversation");
     assert.equal(f.panel.act, undefined);
-    assert.equal(f.contributions.commands.length, 11);
+    assert.equal(f.contributions.commands.length, 12);
   }));
 
 test("wait delivers consecutive output after buffer rotation without repeats", () =>
@@ -394,7 +394,7 @@ test("tool slots replace legacy approval/result UI and use private presentation 
       shell: "/bin/sh",
     };
     const request = {
-      id: "host.ui.tool.approval",
+      id: "pal.host.ui.tool.approval",
       locale: "zh-CN",
       sessionId: "session-a",
       approvalId: "approval-a",

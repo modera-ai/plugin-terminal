@@ -45,7 +45,7 @@ it("opens, controls, focuses, lists and closes scoped PTY tabs", async () => {
     ),
     pluginId: "pal.terminal",
     storagePath: "",
-    grantedPermissions: new Set(["process.spawn"]),
+    grantedPermissions: new Set(["pal.process.spawn"]),
     signal: controller.signal,
     config: {
       read: async () => ({
@@ -119,7 +119,7 @@ it("rejects cross-conversation access and ambiguous send input", async () => {
     ),
     pluginId: "pal.terminal",
     storagePath: "",
-    grantedPermissions: new Set(["process.spawn"]),
+    grantedPermissions: new Set(["pal.process.spawn"]),
     signal: controller.signal,
     config: {
       read: async () => ({

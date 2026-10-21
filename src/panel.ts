@@ -26,6 +26,18 @@ export function registerTerminalPanel(
         const value = input as Record<string, unknown>;
         const context = execution.context;
         switch (definition.id) {
+          case "pal.terminal.detect":
+            return (async () => {
+              context.signal.throwIfAborted();
+              const { detectTerminalOptions, detectWslDistributions } =
+                await import("./terminal-detection");
+              const shells = await detectTerminalOptions(context.signal);
+              const distributions = await detectWslDistributions(
+                context.signal,
+              );
+              context.signal.throwIfAborted();
+              return { shells, distributions };
+            })();
           case "pal.terminal.open":
             return control.open(
               value as Parameters<TerminalControl["open"]>[0],
@@ -143,11 +155,11 @@ export function registerTerminalPanel(
   };
   pal.ui.register({
     id: "pal.terminal.panel",
-    slot: "ui.panel",
+    slot: "pal.ui.panel",
     scope: "conversation",
     hostRenderer: "terminal",
     nativeCapabilities: ["terminal"],
-    requiredPermissions: ["process.spawn"],
+    requiredPermissions: ["pal.process.spawn"],
     // Temporary action transport: 65536 characters may expand sixfold in JSON.
     commandLimits: { maxInputChars: 400_000 },
     commands: ["input", "resize", "close", "read", "list"].map(

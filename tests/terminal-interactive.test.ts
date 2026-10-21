@@ -9,7 +9,7 @@ it("one pending process reads three user inputs then returns once", async () => 
     ...processHost(() => controller.signal),
     pluginId: "test",
     storagePath: "",
-    grantedPermissions: new Set(["process.spawn"]),
+    grantedPermissions: new Set(["pal.process.spawn"]),
     signal: controller.signal,
   });
   const context = {
@@ -66,7 +66,7 @@ it.each(["stop", "cancel", "timeout"])(
       ...processHost(() => controller.signal),
       pluginId: "test",
       storagePath: "",
-      grantedPermissions: new Set(["process.spawn"]),
+      grantedPermissions: new Set(["pal.process.spawn"]),
       signal: controller.signal,
     });
     const context = {

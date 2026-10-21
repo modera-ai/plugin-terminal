@@ -1,9 +1,6 @@
 {
   "apiVersion": 1,
-  "workspaceTargets": [
-    "local",
-    "ssh"
-  ],
+  "workspaceTargets": ["local", "ssh"],
   "activationScope": "scoped",
   "id": "pal.terminal",
   "name": "Terminal",
@@ -23,23 +20,15 @@
       "entry": "tool-presentation.js"
     }
   },
-  "permissions": [
-    "storage.read",
-    "storage.write"
-  ],
-  "extensions": [
-    "settings"
-  ],
+  "permissions": ["pal.storage.read", "pal.storage.write"],
+  "extensions": ["pal.ui.settings"],
   "configScope": "global",
   "config": {
     "agentEnvironment": {
       "type": "enum",
       "title": "Agent environment",
       "default": "windows-native",
-      "options": [
-        "windows-native",
-        "wsl"
-      ],
+      "options": ["windows-native", "wsl"],
       "locales": {
         "zh-CN": {
           "title": "智能体环境"
@@ -167,10 +156,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "command",
-          "description"
-        ],
+        "required": ["command", "description"],
         "type": "object"
       },
       "presentation": {
@@ -190,16 +176,12 @@
             "path": "durationMs"
           }
         ],
-        "targets": [
-          "description",
-          "command"
-        ],
+        "targets": ["description", "command"],
         "tone": "slate"
       },
-      "requiredPermissions": [
-        "process.spawn"
-      ],
-      "title": "执行终端命令"
+      "requiredPermissions": ["pal.process.spawn"],
+      "title": "执行终端命令",
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_session",
@@ -219,13 +201,7 @@
         "additionalProperties": false,
         "properties": {
           "action": {
-            "enum": [
-              "list",
-              "read",
-              "stop",
-              "logs",
-              "read_log"
-            ]
+            "enum": ["list", "read", "stop", "logs", "read_log"]
           },
           "cursor": {
             "minimum": 0,
@@ -236,9 +212,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "action"
-        ],
+        "required": ["action"],
         "type": "object"
       },
       "presentation": {
@@ -258,16 +232,12 @@
             "path": "stdout"
           }
         ],
-        "targets": [
-          "action",
-          "sessionId"
-        ],
+        "targets": ["action", "sessionId"],
         "tone": "slate"
       },
-      "requiredPermissions": [
-        "process.spawn"
-      ],
-      "title": "管理终端任务"
+      "requiredPermissions": ["pal.process.spawn"],
+      "title": "管理终端任务",
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_open",
@@ -281,9 +251,7 @@
       },
       "title": "打开交互终端",
       "description": "Open a persistent interactive PTY in the right panel. Returns tabId. cwd defaults to the project root.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -314,10 +282,9 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "cwd"
-        ]
-      }
+        "targets": ["cwd"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_send",
@@ -331,9 +298,7 @@
       },
       "title": "向终端发送输入",
       "description": "Send text or named keys to a persistent terminal tab. Text receives Enter when it has no trailing newline. keys supports enter/return, arrows, ctrl+a through ctrl+z (control+ aliases), and F1-F12 on Windows and macOS. Use ctrl+c to interrupt on both platforms; command+c is not a terminal interrupt. Unknown names are sent verbatim; keys never appends Enter. Optional description explains complex input on its card; not required for simple answers or key presses.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -363,14 +328,10 @@
         },
         "oneOf": [
           {
-            "required": [
-              "input"
-            ]
+            "required": ["input"]
           },
           {
-            "required": [
-              "keys"
-            ]
+            "required": ["keys"]
           }
         ]
       },
@@ -378,10 +339,9 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "description"
-        ]
-      }
+        "targets": ["description"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_read",
@@ -395,9 +355,7 @@
       },
       "title": "读取终端",
       "description": "Read incremental text and raw terminal output from a tab. Reuse nextCursor; waitMs optionally waits for more output first.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -420,10 +378,9 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
-      }
+        "targets": ["tabId"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_resize",
@@ -437,9 +394,7 @@
       },
       "title": "调整终端大小",
       "description": "Resize the PTY dimensions for a terminal tab.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -458,19 +413,15 @@
             "maximum": 300
           }
         },
-        "required": [
-          "cols",
-          "rows"
-        ]
+        "required": ["cols", "rows"]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
-      }
+        "targets": ["tabId"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_wait",
@@ -484,9 +435,7 @@
       },
       "title": "等待终端空闲",
       "description": "Wait until a terminal has no new output for idleMs, then return only text not delivered by an earlier wait.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -510,10 +459,9 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
-      }
+        "targets": ["tabId"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_close",
@@ -527,9 +475,7 @@
       },
       "title": "关闭终端",
       "description": "Close a terminal tab and terminate its PTY.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -543,10 +489,9 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
-      }
+        "targets": ["tabId"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_focus",
@@ -560,9 +505,7 @@
       },
       "title": "聚焦终端",
       "description": "Bring a persistent terminal tab to the foreground in the right panel.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -572,18 +515,15 @@
             "minLength": 1
           }
         },
-        "required": [
-          "tabId"
-        ]
+        "required": ["tabId"]
       },
       "presentation": {
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate",
-        "targets": [
-          "tabId"
-        ]
-      }
+        "targets": ["tabId"]
+      },
+      "workspaceEffects": "input"
     },
     {
       "id": "terminal_list",
@@ -597,9 +537,7 @@
       },
       "title": "列出终端",
       "description": "List persistent terminal tabs in this conversation with IDs, directories and active state.",
-      "requiredPermissions": [
-        "process.spawn"
-      ],
+      "requiredPermissions": ["pal.process.spawn"],
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -609,7 +547,8 @@
         "icon": "terminal",
         "kind": "terminal",
         "tone": "slate"
-      }
+      },
+      "workspaceEffects": "input"
     }
   ],
   "locales": {
@@ -623,14 +562,16 @@
   "requiresHost": {
     "pal.commands.dispatch": 1,
     "pal.commands.callable": 1,
-    "plugin.declarations": 1,
+    "pal.plugin.declarations": 1,
     "pal.commands.execute": 1,
-    "plugin.hostPanel": 1,
-    "plugin.hostPanel.terminal": 1,
-    "plugin.slots": 1,
-    "plugin.process.commands": 1,
-    "context.commands": 1,
-    "context.processPort": 1
+    "pal.plugin.hostPanel": 1,
+    "pal.plugin.hostPanel.terminal": 1,
+    "pal.plugin.slots": 1,
+    "pal.plugin.process.commands": 1,
+    "pal.context.commands": 1,
+    "pal.context.processPort": 1,
+    "pal.settings.commands": 1,
+    "pal.plugin.tools.workspaceEffects": 1
   },
   "declarations": {
     "provides": {
@@ -640,9 +581,7 @@
           "title": "Terminal: open",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -672,9 +611,7 @@
           "title": "Terminal: send",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -702,9 +639,7 @@
           "title": "Terminal: read",
           "visibility": "public",
           "readOnly": true,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -725,9 +660,7 @@
           "title": "Terminal: resize",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -746,10 +679,7 @@
                 "maximum": 300
               }
             },
-            "required": [
-              "cols",
-              "rows"
-            ]
+            "required": ["cols", "rows"]
           }
         },
         {
@@ -757,9 +687,7 @@
           "title": "Terminal: wait",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -786,9 +714,7 @@
           "title": "Terminal: close",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -805,9 +731,7 @@
           "title": "Terminal: focus",
           "visibility": "public",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -816,9 +740,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "tabId"
-            ]
+            "required": ["tabId"]
           }
         },
         {
@@ -826,9 +748,7 @@
           "title": "Terminal: list",
           "visibility": "public",
           "readOnly": true,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -841,9 +761,7 @@
           "title": "Terminal: input",
           "visibility": "private",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "additionalProperties": false,
@@ -856,10 +774,18 @@
                 "maxLength": 65536
               }
             },
-            "required": [
-              "tabId",
-              "data"
-            ]
+            "required": ["tabId", "data"]
+          }
+        },
+        {
+          "id": "pal.terminal.detect",
+          "title": "Detect installed terminals",
+          "visibility": "private",
+          "readOnly": true,
+          "requiredPermissions": ["pal.process.spawn"],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false
           }
         },
         {
@@ -867,9 +793,7 @@
           "title": "终端展示read",
           "visibility": "private",
           "readOnly": true,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "properties": {},
@@ -881,27 +805,20 @@
           "title": "终端展示act",
           "visibility": "private",
           "readOnly": false,
-          "requiredPermissions": [
-            "process.spawn"
-          ],
+          "requiredPermissions": ["pal.process.spawn"],
           "inputSchema": {
             "type": "object",
             "properties": {
               "action": {
                 "type": "string",
-                "enum": [
-                  "stop",
-                  "input"
-                ]
+                "enum": ["stop", "input"]
               },
               "value": {
                 "type": "string",
                 "maxLength": 4000
               }
             },
-            "required": [
-              "action"
-            ],
+            "required": ["action"],
             "additionalProperties": false
           }
         }
@@ -909,7 +826,7 @@
       "ui": [
         {
           "id": "pal.terminal.panel",
-          "slot": "ui.panel",
+          "slot": "pal.ui.panel",
           "description": "固定在打开时会话和工作目录的交互终端。"
         }
       ]
@@ -919,27 +836,23 @@
         {
           "id": "pal.terminal.approval",
           "target": {
-            "slot": "host.ui.tool.approval",
+            "slot": "pal.host.ui.tool.approval",
             "version": 1
           },
           "content": {
-            "toolNames": [
-              "terminal_execute"
-            ],
+            "toolNames": ["terminal_execute"],
             "component": {
               "module": "tool-presentation",
               "export": "default"
             },
             "props": {}
           },
-          "commands": [
-            "pal.terminal.presentation.read"
-          ]
+          "commands": ["pal.terminal.presentation.read"]
         },
         {
           "id": "pal.terminal.result",
           "target": {
-            "slot": "host.ui.tool.result",
+            "slot": "pal.host.ui.tool.result",
             "version": 1
           },
           "content": {
@@ -997,7 +910,7 @@
   },
   "promptSections": [
     {
-      "id": "tool-guidance",
+      "id": "pal.terminal.tool-guidance",
       "description": "Terminal tool usage guidance",
       "mode": "static",
       "text": "Use the terminal for builds, tests and commands that genuinely require a shell. Use workspace tools for ordinary file edits; use managed background sessions for servers and watchers.",

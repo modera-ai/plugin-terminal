@@ -1,3 +1,4 @@
+import { withWorkspaceEffects } from "./workspace-effects";
 import { isRemotePath } from "@pal/plugin-sdk/workspace-path";
 import manifest from "../plugin.json";
 import { definePlugin, declaredTool, declaredTools } from "@pal/plugin-sdk";
@@ -108,20 +109,9 @@ export const activate: PluginModule["activate"] = async (host) => {
       },
     };
   };
-  return {
+  return withWorkspaceEffects({
     ...registered,
-    settings: {
-      actions: ["detect"],
-      async act(action) {
-        if (action.id !== "detect") throw new Error("Unknown settings action");
-        const { detectTerminalOptions, detectWslDistributions } =
-          await import("./terminal-detection");
-        return {
-          shells: await detectTerminalOptions(),
-          distributions: await detectWslDistributions(),
-        };
-      },
-    },
+    settings: { commands: ["pal.terminal.detect"] },
     tools: [
       {
         definition,
@@ -228,5 +218,5 @@ export const activate: PluginModule["activate"] = async (host) => {
         },
       })),
     ],
-  };
+  });
 };
