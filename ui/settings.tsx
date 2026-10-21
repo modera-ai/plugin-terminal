@@ -36,7 +36,7 @@ function TerminalSettings() {
       .catch(() => {});
     void settings.run(async () =>
       setDetected(
-        await frontend().settings.commands!.execute<Detection>(
+        await frontend().command.execute<Detection>(
           "pal.terminal.detect",
           {},
         ),

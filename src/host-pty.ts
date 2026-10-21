@@ -25,7 +25,7 @@ export async function createHostPty(
     rows: number;
   },
 ): Promise<HostPty> {
-  const commands = host.commands?.(context);
+  const commands = host.command?.(context);
   if (!commands || !host.processPort)
     throw new Error("Host process commands unavailable");
   const resource = (await commands.execute("pal.process.start", {

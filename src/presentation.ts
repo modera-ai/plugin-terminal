@@ -18,7 +18,7 @@ export function registerTerminalPresentation(
   for (const definition of manifest.declarations.provides.commands.filter((c) =>
     c.id.startsWith("pal.terminal.presentation."),
   )) {
-    pal.commands.register({
+    pal.command.register({
       ...(definition as PluginCommandDeclaration),
       inputSchema: definition.inputSchema,
       requiredPermissions: definition.requiredPermissions,

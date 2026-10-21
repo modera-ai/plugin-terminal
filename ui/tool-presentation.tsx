@@ -20,7 +20,7 @@ interface Props {
   };
   api: {
     signal: AbortSignal;
-    commands: { execute<T>(id: string, input: unknown): Promise<T> };
+    command: { execute<T>(id: string, input: unknown): Promise<T> };
     onInvalidate(listener: () => void): () => void;
   };
 }
@@ -42,7 +42,7 @@ export default function TerminalPresentation({
     const refresh = async () => {
       const selected = ++sequence;
       try {
-        const value = await api.commands.execute<{
+        const value = await api.command.execute<{
           title: string;
           kind?: "command" | "control";
           data: AgentTerminalData;
@@ -73,7 +73,7 @@ export default function TerminalPresentation({
     setBusy(true);
     setError("");
     try {
-      await api.commands.execute("pal.terminal.presentation.act", {
+      await api.command.execute("pal.terminal.presentation.act", {
         action,
         ...(value === undefined ? {} : { value }),
       });

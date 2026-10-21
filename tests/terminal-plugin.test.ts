@@ -27,7 +27,7 @@ function runCommand(
     undefined,
     undefined,
     undefined,
-    host.commands!({
+    host.command!({
       sessionId: "s",
       projectId: "p",
       runId: "r",

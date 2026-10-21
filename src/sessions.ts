@@ -101,7 +101,7 @@ export class TerminalSessions {
         { ...context, label: command },
         async (signal) => {
           try {
-            const processCommands = this.host.commands?.({
+            const processCommands = this.host.command?.({
               ...context,
               signal: AbortSignal.any([signal, job.controller.signal]),
             });

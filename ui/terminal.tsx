@@ -79,7 +79,7 @@ export default function TerminalPanel({
       }),
     );
     const stream = api.terminal;
-    const commands = api.commands;
+    const commands = api.command;
     setError("");
     let id = "";
     let cursor = 0;

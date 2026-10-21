@@ -137,7 +137,7 @@ export class InteractiveCommands {
     this.commands.set(key, entry);
     this.host.invalidateUi?.(context.sessionId);
     try {
-      const processCommands = this.host.commands?.(context);
+      const processCommands = this.host.command?.(context);
       const result = await runCommand(
         shell,
         command,

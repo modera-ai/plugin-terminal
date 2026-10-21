@@ -139,7 +139,7 @@ export function processHost(scope, createPty) {
     }
   };
   return {
-    commands: (context) => ({
+    command: (context) => ({
       execute: (id, input) => execute(context, id, input),
     }),
     processPort: (_context, id) => {
