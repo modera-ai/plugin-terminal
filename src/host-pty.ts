@@ -28,7 +28,7 @@ export async function createHostPty(
   const commands = host.commands?.(context);
   if (!commands || !host.processPort)
     throw new Error("Host process commands unavailable");
-  const resource = (await commands.execute("process.start", {
+  const resource = (await commands.execute("pal.process.start", {
     ...input,
     mode: "pty",
     scope: "session",
@@ -38,7 +38,7 @@ export async function createHostPty(
     port = host.processPort(context, resource.processId);
   } catch (error) {
     await commands
-      .execute("process.stop", { processId: resource.processId })
+      .execute("pal.process.stop", { processId: resource.processId })
       .catch(() => {});
     throw error;
   }

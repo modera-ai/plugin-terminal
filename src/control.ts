@@ -281,7 +281,7 @@ export class TerminalControl {
     if (keyMode && input.keys!.length > 64)
       throw new Error("keys accepts at most 64 entries");
     if (textMode && !/[\r\n]$/.test(data)) data += "\r";
-    await this.host.commands!(context).execute("process.write", {
+    await this.host.commands!(context).execute("pal.process.write", {
       processId: item.process.processId,
       data,
     });
@@ -308,7 +308,7 @@ export class TerminalControl {
   async writeRaw(tabId: string, data: string, context: ToolContext) {
     const item = this.owned(context, tabId);
     if (!item.alive) throw new Error("Terminal process has exited");
-    await this.host.commands!(context).execute("process.write", {
+    await this.host.commands!(context).execute("pal.process.write", {
       processId: item.process.processId,
       data,
     });
@@ -361,7 +361,7 @@ export class TerminalControl {
     const rows = Math.max(1, Math.min(300, Math.floor(input.rows)));
     if (!Number.isFinite(cols) || !Number.isFinite(rows))
       throw new Error("Invalid terminal dimensions");
-    await this.host.commands!(context).execute("process.resize", {
+    await this.host.commands!(context).execute("pal.process.resize", {
       processId: item.process.processId,
       cols,
       rows,

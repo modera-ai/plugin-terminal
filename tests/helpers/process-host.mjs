@@ -30,7 +30,7 @@ export function processHost(scope, createPty) {
     exit: item.exit,
   });
   const execute = async (context, id, input) => {
-    if (id === "process.start") {
+    if (id === "pal.process.start") {
       const signal = scope(context.projectId);
       signal.throwIfAborted();
       const item = {
@@ -113,19 +113,19 @@ export function processHost(scope, createPty) {
     const item = items.get(input.processId);
     if (!item) throw new Error("Process unavailable");
     item.signal.throwIfAborted();
-    if (id === "process.stop") {
+    if (id === "pal.process.stop") {
       stop(item);
       return snapshot(item);
     }
-    if (id === "process.write") {
+    if (id === "pal.process.write") {
       (item.pty ?? item.child.stdin).write(input.data);
       return { accepted: true };
     }
-    if (id === "process.resize") {
+    if (id === "pal.process.resize") {
       item.pty.resize(input.cols, input.rows);
       return input;
     }
-    if (id === "process.read") {
+    if (id === "pal.process.read") {
       if (item.status === "running" && input.cursor >= item.text.length)
         await new Promise((r) => setTimeout(r, 10));
       const text = item.text.slice(input.cursor, input.cursor + input.maxChars);

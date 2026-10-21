@@ -33,7 +33,7 @@ export async function runCommand(
   if (!commands) throw new Error("Host process commands unavailable");
   const started = performance.now();
   const target = spawnCommand(shell, command, cwd, !!onInput);
-  const resource = (await commands.execute("process.start", {
+  const resource = (await commands.execute("pal.process.start", {
     mode: "pipe",
     executable: target.executable,
     args: target.args,
@@ -44,7 +44,7 @@ export async function runCommand(
   })) as ProcessSnapshot;
   if (resource.pid) onSpawn?.(resource.pid);
   onInput?.(async (data) => {
-    await commands.execute("process.write", {
+    await commands.execute("pal.process.write", {
       processId: resource.processId,
       data,
     });
@@ -58,14 +58,14 @@ export async function runCommand(
   let status: CommandResult["status"] = "completed";
   const stop = () => {
     void commands
-      .execute("process.stop", { processId: resource.processId })
+      .execute("pal.process.stop", { processId: resource.processId })
       .catch(() => {});
   };
   signal.addEventListener("abort", stop, { once: true });
   if (signal.aborted) stop();
   try {
     for (;;) {
-      const result = (await commands.execute("process.read", {
+      const result = (await commands.execute("pal.process.read", {
         processId: resource.processId,
         cursor,
         maxChars: 65536,

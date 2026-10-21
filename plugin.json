@@ -621,10 +621,10 @@
     }
   },
   "requiresHost": {
-    "plugin.commands.dispatch": 1,
-    "plugin.commands.callable": 1,
+    "pal.commands.dispatch": 1,
+    "pal.commands.callable": 1,
     "plugin.declarations": 1,
-    "frontend.commands.execute": 1,
+    "pal.commands.execute": 1,
     "plugin.hostPanel": 1,
     "plugin.hostPanel.terminal": 1,
     "plugin.slots": 1,
@@ -969,27 +969,27 @@
       ],
       "commands": [
         {
-          "id": "process.start",
+          "id": "pal.process.start",
           "reason": "使用宿主进程资源与生命周期"
         },
         {
-          "id": "process.read",
+          "id": "pal.process.read",
           "reason": "使用宿主进程资源与生命周期"
         },
         {
-          "id": "process.write",
+          "id": "pal.process.write",
           "reason": "使用宿主进程资源与生命周期"
         },
         {
-          "id": "process.resize",
+          "id": "pal.process.resize",
           "reason": "使用宿主进程资源与生命周期"
         },
         {
-          "id": "process.stop",
+          "id": "pal.process.stop",
           "reason": "使用宿主进程资源与生命周期"
         },
         {
-          "id": "process.list",
+          "id": "pal.process.list",
           "reason": "使用宿主进程资源与生命周期"
         }
       ]

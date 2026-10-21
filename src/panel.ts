@@ -149,7 +149,7 @@ export function registerTerminalPanel(
     nativeCapabilities: ["terminal"],
     requiredPermissions: ["process.spawn"],
     // Temporary action transport: 65536 characters may expand sixfold in JSON.
-    actionLimits: { maxValueChars: 400_000 },
+    commandLimits: { maxInputChars: 400_000 },
     commands: ["input", "resize", "close", "read", "list"].map(
       (name) => `pal.terminal.${name}`,
     ),
