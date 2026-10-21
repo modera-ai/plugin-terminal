@@ -4,7 +4,12 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { installRemoteWorkspaceTransport } from "@pal/plugin-sdk/workspace-transport";
-const { activate } = createRequire(import.meta.url)("../dist/index.cjs");
+const require = createRequire(import.meta.url);
+const activate = (...args) => {
+  const entry = require.resolve("../dist/index.cjs");
+  delete require.cache[entry];
+  return require(entry).activate(...args);
+};
 class FakePty {
   pid = 1;
   cols = 100;

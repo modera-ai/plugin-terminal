@@ -29,7 +29,7 @@ export default function TerminalPanel({
   api,
   snapshot,
 }: {
-  api: Pick<PluginFrontendApi, "commands"> & {
+  api: Pick<PluginFrontendApi, "command"> & {
     terminal: Pick<
       PluginFrontendApi["terminal"],
       "attach" | "onOutput" | "onExit"

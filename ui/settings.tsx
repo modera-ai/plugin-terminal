@@ -17,7 +17,8 @@ import {
   SettingsPanel,
 } from "@pal/ui/settings";
 import "@pal/ui/styles.css";
-import { frontend, mountPlugin, useSettings } from "@pal/plugin-sdk/react";
+import { mountPlugin, useSettings } from "@pal/plugin-sdk/react";
+import { pal } from "@pal/plugin-sdk";
 
 interface Detection {
   shells: { id: string; label: string; path: string }[];
@@ -31,12 +32,12 @@ function TerminalSettings() {
     distributions: [],
   });
   useEffect(() => {
-    void frontend()
+    void pal
       .ready()
       .catch(() => {});
     void settings.run(async () =>
       setDetected(
-        await frontend().command.execute<Detection>(
+        await pal.command.execute<Detection>(
           "pal.terminal.detect",
           {},
         ),
@@ -64,7 +65,7 @@ function TerminalSettings() {
     });
   const browse = () =>
     void settings.run(async () => {
-      const path = await frontend().settings.pickFile();
+      const path = await pal.settings.pickFile();
       if (path) set("integratedShell", path);
     });
   const number = (key: string, raw: string) => {
