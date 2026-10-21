@@ -107,7 +107,7 @@ async function fixture(work, create) {
 test("PAL command declarations match registration; panel is conversation-bound without act", () =>
   fixture(async (f) => {
     const manifest = JSON.parse(
-      await readFile(new URL("../plugin.json", import.meta.url), "utf8"),
+      await readFile(new URL("../pal-manifest.json", import.meta.url), "utf8"),
     );
     assert.deepEqual(
       f.contributions.commands.map(({ run, ...metadata }) => metadata),
@@ -372,7 +372,7 @@ test("render cannot return an old terminal after configuration I/O spans disable
 test("tool slots replace legacy approval/result UI and use private presentation commands", () =>
   fixture(async (f) => {
     const manifest = JSON.parse(
-      await readFile(new URL("../plugin.json", import.meta.url), "utf8"),
+      await readFile(new URL("../pal-manifest.json", import.meta.url), "utf8"),
     );
     assert.deepEqual(
       f.contributions.slotContributions,

@@ -1,4 +1,4 @@
-import manifest from "../plugin.json";
+import manifest from "../pal-manifest.json";
 import { declaredTool } from "@pal/plugin-sdk";
 import { randomUUID } from "node:crypto";
 import type {

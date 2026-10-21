@@ -1,6 +1,6 @@
 import { withWorkspaceEffects } from "./workspace-effects";
 import { isRemotePath } from "@pal/plugin-sdk/workspace-path";
-import manifest from "../plugin.json";
+import manifest from "../pal-manifest.json";
 import { definePlugin, declaredTool, declaredTools } from "@pal/plugin-sdk";
 import type {
   PluginModule,

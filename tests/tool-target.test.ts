@@ -1,4 +1,4 @@
-import manifest from "../plugin.json";
+import manifest from "../pal-manifest.json";
 import { expect, it } from "vitest";
 import { terminalToolTarget } from "../ui/tool-target";
 it("execute displays the tool's own AI description, never the raw command", () => {

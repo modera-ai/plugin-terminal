@@ -1,4 +1,4 @@
-import manifest from "../plugin.json";
+import manifest from "../pal-manifest.json";
 import type { PluginRegistration } from "@pal/plugin-sdk";
 import {
   localizeMetadata,

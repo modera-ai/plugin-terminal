@@ -1,6 +1,6 @@
 import { localizeMetadata, type ToolDefinition } from "@pal/contracts";
 import { describe, expect, it } from "vitest";
-import manifest from "../plugin.json";
+import manifest from "../pal-manifest.json";
 
 describe("terminal control titles", () => {
   it("provides English metadata for every terminal control operation", () => {

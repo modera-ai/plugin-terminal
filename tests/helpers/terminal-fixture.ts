@@ -7,7 +7,8 @@ import type {
   ToolContext,
   ToolContribution,
 } from "@pal/plugin-sdk";
-import manifest from "../../plugin.json";
+import { readPluginManifest } from "../../../../modera/modera-app/core/packages/plugin-host/src/testing";
+const manifest=readPluginManifest(new URL("../../",import.meta.url));
 
 /** Only supplies the SDK lifecycle contract; no dependency on host internals. */
 export async function terminalFixture() {
